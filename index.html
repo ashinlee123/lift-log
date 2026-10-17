@@ -1,0 +1,1525 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="健力日誌">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.5 system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>健力日誌</title>
+<meta name="theme-color" content="#121316">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: one-column phone logbook. Sticky week/day selector on top, set rows as a gym logsheet, tab bar fixed to the bottom. Lift colors follow IPF calibrated plates: red 25 (squat), blue 20 (bench), yellow 15 (deadlift). */
+:root{
+  --bg:#eceeeb; --surface:#ffffff; --surface-2:#f4f5f3; --ink:#16181b; --muted:#5f666c; --line:#d6dad5;
+  --accent:#c9252b; --accent-ink:#ffffff; --accent-soft:#c9252b1a;
+  --squat:#c9252b; --bench:#1d5fc4; --dead:#b88a00; --acc:#6a7177;
+  --good:#1d8a4b; --good-soft:#1d8a4b1f; --warn:#a96400; --warn-soft:#a964001f;
+  --display:"Barlow Condensed","Arial Narrow","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+  --body:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei","Segoe UI",sans-serif;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111214; --surface:#1a1c1f; --surface-2:#222529; --ink:#ecebe7; --muted:#9aa1a7; --line:#2d3136;
+  --accent:#ff544a; --accent-ink:#16090a; --accent-soft:#ff544a24;
+  --squat:#ff544a; --bench:#5d9cff; --dead:#f0c23a; --acc:#9aa1a7;
+  --good:#3fcf7d; --good-soft:#3fcf7d22; --warn:#f2a640; --warn-soft:#f2a64022; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111214; --surface:#1a1c1f; --surface-2:#222529; --ink:#ecebe7; --muted:#9aa1a7; --line:#2d3136;
+  --accent:#ff544a; --accent-ink:#16090a; --accent-soft:#ff544a24;
+  --squat:#ff544a; --bench:#5d9cff; --dead:#f0c23a; --acc:#9aa1a7;
+  --good:#3fcf7d; --good-soft:#3fcf7d22; --warn:#f2a640; --warn-soft:#f2a64022; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--display);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .wrap{padding-block:10px 10px;display:grid;gap:10px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.brand h1{margin:0;font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.02em;text-transform:uppercase}
+.brand h1 b{color:var(--accent)}
+.sync{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.sync i{width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block}
+.sync.on i{background:var(--good)}
+.weeks{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding-inline:max(16px,env(safe-area-inset-left,0px))}
+.weeks::-webkit-scrollbar{display:none}
+.wk{flex:0 0 auto;border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:5px 10px 6px;text-align:left;min-width:64px;display:grid;gap:2px}
+.wk .n{font-family:var(--display);font-weight:700;font-size:18px;line-height:1}
+.wk .l{font-size:11px;color:var(--muted);line-height:1.2;white-space:nowrap}
+.wk .pips{display:flex;gap:3px;margin-top:2px}
+.wk .pips span{width:9px;height:3px;border-radius:2px;background:var(--line)}
+.wk .pips span.on{background:var(--good)}
+.wk.deload{border-style:dashed}
+.wk[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.wk[aria-pressed="true"] .l{color:inherit;opacity:.75}
+.days{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px}
+.dy{border:0;background:transparent;border-radius:7px;padding:6px 2px;font-family:var(--display);font-weight:600;font-size:16px;display:flex;align-items:center;justify-content:center;gap:5px}
+.dy[aria-pressed="true"]{background:var(--surface);box-shadow:0 1px 2px #0002}
+.dy .ok{width:15px;height:15px;border-radius:50%;background:var(--good);color:var(--surface);font-size:10px;display:inline-grid;place-items:center;font-family:var(--body)}
+
+main .wrap{padding-block:16px 150px;display:grid;gap:14px}
+
+/* day header */
+.dayhead{display:grid;gap:6px}
+.eyebrow{font-size:12px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;font-weight:600}
+.dayhead h2{margin:0;font-family:var(--display);font-size:30px;line-height:1.05;font-weight:700;text-wrap:balance}
+.dayhead .sub{color:var(--muted);font-size:13px}
+.meter{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.bar{flex:1;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar span{display:block;height:100%;background:var(--good);transition:width .3s}
+.banner{border-radius:var(--r);padding:10px 12px;font-size:13px;background:var(--warn-soft);color:var(--ink);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
+.banner b{color:var(--warn)}
+
+/* exercise card */
+.ex{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.ex-head{padding:12px 14px 8px;display:grid;gap:4px;border-left:4px solid var(--c,var(--acc))}
+.ex[data-cat="squat"]{--c:var(--squat)} .ex[data-cat="bench"]{--c:var(--bench)} .ex[data-cat="dead"]{--c:var(--dead)} .ex[data-cat="acc"]{--c:var(--acc)}
+.ex-title{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.ord{font-family:var(--display);font-weight:600;color:var(--c);font-size:15px}
+.ex h3{margin:0;font-size:17px;font-weight:700}
+.ex .en{font-size:12px;color:var(--muted)}
+.rx{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline}
+.rx .big{font-family:var(--display);font-weight:700;font-size:26px;line-height:1}
+.rx .big small{font-size:15px;font-weight:600;color:var(--muted);margin-left:2px}
+.rx .meta{font-family:var(--display);font-size:17px;font-weight:600;color:var(--muted)}
+.rx .meta b{color:var(--ink)}
+.note-pill{font-size:12px;padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+.plates{display:flex;gap:4px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.plate{display:inline-grid;place-items:center;min-width:24px;height:20px;padding:0 4px;border-radius:4px;font-family:var(--display);font-weight:700;font-size:13px;color:#fff}
+.p25{background:#c9252b}.p20{background:#1d5fc4}.p15{background:#d6a800;color:#1a1400}.p10{background:#1d8a4b}.p5{background:#f2f2ee;color:#111;border:1px solid #bbb}.p2{background:#2b2d31}.p1{background:#8a8f94}
+details.cue{padding:0 14px 6px}
+details.cue summary{font-size:13px;color:var(--muted);cursor:pointer;padding:2px 0;list-style:none}
+details.cue summary::-webkit-details-marker{display:none}
+details.cue summary::before{content:"＋ ";}
+details.cue[open] summary::before{content:"－ ";}
+details.cue p{margin:4px 0 6px;font-size:14px;max-width:62ch}
+
+.sets{border-top:1px solid var(--line);background:var(--surface-2)}
+.srow{display:grid;grid-template-columns:28px minmax(0,1.3fr) minmax(0,.9fr) minmax(0,1fr) 44px;gap:6px;align-items:center;padding:6px 10px 6px 12px}
+.srow + .srow{border-top:1px solid var(--line)}
+.srow.hd{padding-block:5px;font-size:11px;color:var(--muted);letter-spacing:.06em;font-weight:600}
+.srow .n{font-family:var(--display);font-weight:700;font-size:17px;color:var(--muted);text-align:center}
+.srow.opt .n::after{content:"選";display:block;font-size:9px;font-family:var(--body);font-weight:500;line-height:1}
+.fld{position:relative}
+.fld input,.fld select{width:100%;height:40px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:0 8px;font-family:var(--display);font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;-webkit-appearance:none;appearance:none}
+.fld input::placeholder{color:var(--muted);opacity:.55}
+.fld .u{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);pointer-events:none}
+.fld select{padding-right:4px;text-align:center}
+.fld select.empty{color:color-mix(in srgb,var(--muted) 60%,transparent)}
+.chk{width:44px;height:40px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);display:grid;place-items:center;color:var(--muted)}
+.chk svg{width:20px;height:20px}
+.srow.done{background:var(--good-soft)}
+.srow.done .chk{background:var(--good);border-color:var(--good);color:var(--surface)}
+.srow.done .n{color:var(--good)}
+.cancelled{padding:12px 14px;font-size:14px;color:var(--muted);border-top:1px solid var(--line);background:var(--surface-2)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.card h3{margin:0 0 8px;font-size:16px}
+textarea{width:100%;min-height:76px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);padding:8px 10px;resize:vertical}
+.row2{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.datein{height:38px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);padding:0 8px}
+.btn{height:46px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:700;padding:0 16px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);width:100%;font-size:16px}
+.btn.primary.is-done{background:var(--good);border-color:var(--good);color:var(--surface)}
+.btn.sm{height:34px;font-size:13px;padding:0 12px;font-weight:600}
+
+/* timer */
+.timer{position:fixed;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom,0px));z-index:6;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));pointer-events:none}
+.timer .in{max-width:536px;margin:0 auto;pointer-events:auto;background:var(--ink);color:var(--surface);border-radius:14px;padding:8px 8px 8px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 6px 20px #0004}
+.timer .t{font-family:var(--display);font-weight:700;font-size:30px;line-height:1;font-variant-numeric:tabular-nums;min-width:74px}
+.timer .lbl{flex:1;min-width:0;font-size:12px;opacity:.8;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.timer button{height:36px;border-radius:9px;border:1px solid color-mix(in srgb,var(--surface) 30%,transparent);background:transparent;color:inherit;font-weight:600;padding:0 10px;font-size:13px}
+.timer.over .in{background:var(--accent);color:var(--accent-ink)}
+
+/* tab bar */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs .wrap{display:grid;grid-template-columns:repeat(4,1fr);height:58px}
+.tab{border:0;background:none;display:grid;place-items:center;align-content:center;gap:2px;font-size:12px;color:var(--muted);font-weight:600}
+.tab svg{width:22px;height:22px}
+.tab[aria-current="page"]{color:var(--accent)}
+
+/* progress */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
+.stat .k{font-size:12px;color:var(--muted)}
+.stat .v{font-family:var(--display);font-weight:700;font-size:28px;line-height:1.1}
+.stat .v small{font-size:14px;color:var(--muted);font-weight:600}
+.grid8{display:grid;grid-template-columns:auto repeat(var(--n,8),minmax(26px,1fr));min-width:0;gap:4px;align-items:center;font-size:12px}
+.grid8 .h{text-align:center;font-family:var(--display);font-weight:600;color:var(--muted);font-size:14px}
+.grid8 .rl{color:var(--muted);font-family:var(--display);font-weight:600;font-size:14px;padding-right:4px}
+.cell{aspect-ratio:1;max-width:100%;border-radius:6px;background:var(--surface-2);border:1px solid var(--line);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:12px;color:var(--muted);padding:0}
+.cell.part{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 50%,transparent);color:var(--warn)}
+.cell.full{background:var(--good);border-color:var(--good);color:var(--surface)}
+.cell.dl{border-style:dashed}
+.lift{display:grid;gap:6px}
+.lift + .lift{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.lift .top-l{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.lift .name{font-weight:700;display:flex;align-items:center;gap:6px}
+.lift .name i{width:10px;height:10px;border-radius:2px;background:var(--c)}
+.lift .val{font-family:var(--display);font-size:24px;font-weight:700}
+.lift .val small{font-size:13px;color:var(--muted);font-weight:600}
+.delta{font-family:var(--display);font-weight:600;font-size:15px}
+.delta.up{color:var(--good)} .delta.down{color:var(--warn)}
+.chart{width:100%;height:auto;display:block;overflow:visible}
+.chart text{fill:var(--muted);font-family:var(--display);font-size:11px}
+.hist{display:grid}
+.hist button{all:unset;cursor:pointer;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.hist button:first-child{border-top:0}
+.hist button:focus-visible{outline:2px solid var(--accent)}
+.hist .wd{font-family:var(--display);font-weight:700;font-size:17px;min-width:62px}
+.hist .s{font-size:13px;color:var(--muted)}
+.hist .c{font-family:var(--display);font-weight:600}
+.empty{color:var(--muted);font-size:14px;margin:0}
+
+/* guide */
+.prose p{margin:0 0 8px;max-width:62ch}
+.tbl-wrap{overflow-x:auto;margin-inline:-14px;padding-inline:14px}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:420px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;color:var(--muted);letter-spacing:.05em;font-weight:600;white-space:nowrap}
+td.n{font-family:var(--display);font-weight:700;font-size:16px;white-space:nowrap;font-variant-numeric:tabular-nums}
+tr.work td{background:var(--accent-soft)}
+.check{display:grid;grid-template-columns:24px 1fr;gap:8px;padding:8px 0;border-top:1px solid var(--line);font-size:14px;cursor:pointer}
+.check:first-of-type{border-top:0}
+.check input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--accent)}
+.check b{display:block}
+.redline{margin-top:10px;padding:10px 12px;border-radius:10px;font-size:13px;background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent)}
+.redline.hot{background:var(--accent);color:var(--accent-ink)}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+
+/* weight button + wheel picker */
+.wbtn{width:100%;height:40px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:0 22px 0 8px;font-family:var(--display);font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;text-align:left;display:flex;align-items:center;gap:4px}
+.wbtn .ph{color:var(--muted);opacity:.55}
+.wbtn::after{content:"";position:absolute;right:9px;top:50%;width:6px;height:6px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:translateY(-70%) rotate(45deg)}
+.sheet{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end}
+[hidden]{display:none!important}
+.sheet-bg{position:absolute;inset:0;background:#0007}
+.sheet-card{position:relative;background:var(--surface);border-radius:18px 18px 0 0;width:100%;max-width:560px;margin:0 auto;padding:14px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:grid;gap:12px;box-shadow:0 -8px 30px #0003}
+.sheet-head{display:flex;align-items:center;gap:10px}
+.sheet-head .t{flex:1;min-width:0;font-weight:700}
+.sheet-head .t small{display:block;font-weight:500;color:var(--muted);font-size:12px}
+.wheel{position:relative;height:220px}
+.wheel-hl{position:absolute;left:0;right:0;top:88px;height:44px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);pointer-events:none}
+.wheel-hl::after{content:attr(data-unit);position:absolute;right:calc(50% - 74px);top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);font-weight:600}
+.wheel-list{position:relative;height:220px;overflow-y:auto;scroll-snap-type:y mandatory;padding-block:88px;scrollbar-width:none;overscroll-behavior:contain;-webkit-mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent)}
+.wheel-list::-webkit-scrollbar{display:none}
+.wi{height:44px;scroll-snap-align:center;display:grid;place-items:center;font-family:var(--display);font-size:22px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;cursor:pointer;user-select:none}
+.wi.sel{color:var(--ink);font-size:32px;font-weight:700}
+.wi.tgt:not(.sel)::after{content:"目標";font-family:var(--body);font-size:10px;margin-left:6px;color:var(--accent)}
+.wi.tgt{display:flex;justify-content:center;align-items:center}
+.pk-plates{min-height:22px;justify-content:center}
+.pk-opts{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
+.pk-opts label{display:flex;align-items:center;gap:8px}
+.pk-opts input{width:18px;height:18px;accent-color:var(--accent)}
+
+/* trend chart */
+.ctl{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.ctl select{flex:1;min-width:0;height:38px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);padding:0 8px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:4px}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:18px;height:0;border-top:2px solid var(--c)}
+.legend i.dash{border-top:2px dashed var(--muted)}
+.trend{position:relative}
+.trend svg{touch-action:pan-y}
+.trend .val-lbl{fill:var(--ink);font-weight:700;font-size:13px}
+.tip{position:absolute;top:0;transform:translateX(-50%);background:var(--ink);color:var(--surface);border-radius:8px;padding:6px 9px;font-size:12px;line-height:1.35;pointer-events:none;white-space:nowrap;z-index:2}
+.tip b{font-family:var(--display);font-size:16px}
+details.tblv summary{font-size:13px;color:var(--muted);cursor:pointer;margin-top:8px}
+
+/* menu editor */
+.fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 10px}
+.f{display:grid;gap:4px;min-width:0}
+.f > span:first-child{font-size:12px;color:var(--muted);font-weight:600}
+.f.full{grid-column:1/-1}
+.f select,.f input[type=text],.title-in,.en-in{width:100%;height:40px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);padding:0 10px;min-width:0}
+.f textarea{min-height:70px}
+.f.ck{display:flex;align-items:center;gap:8px;align-self:end;height:40px}
+.f.ck input{width:20px;height:20px;accent-color:var(--accent);flex:none}
+.f.ck span{font-size:13px}
+.f .wbtn{background:var(--surface-2)}
+.cyc{display:flex;flex-wrap:wrap;gap:4px}
+.cyc span{min-width:26px;height:26px;border-radius:6px;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:13px;background:var(--ink);color:var(--surface)}
+.cyc span.d{background:transparent;color:var(--muted);border:1.5px dashed var(--muted)}
+.baserow{display:grid;grid-template-columns:40px minmax(0,1fr) minmax(0,.9fr) minmax(0,1.1fr);gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+.baserow:first-of-type{border-top:0}
+.f.inl{grid-template-columns:auto minmax(0,1fr);align-items:center;gap:4px}
+.f.inl select{padding:0 4px}
+.mday{display:grid;gap:8px}
+.mday-h{display:grid;gap:6px;margin-top:6px}
+.title-in{font-family:var(--display);font-size:22px;font-weight:700;background:transparent;border-color:transparent;padding:0 6px;margin-left:-6px;height:38px}
+.title-in:hover,.title-in:focus{border-color:var(--line);background:var(--surface)}
+.en-in{height:32px;font-size:13px;background:transparent;border-color:transparent;padding:0 6px;margin-left:-6px;color:var(--muted)}
+.en-in:hover,.en-in:focus{border-color:var(--line);background:var(--surface)}
+.mx{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;border-left:4px solid var(--c,var(--acc))}
+.mx[data-cat="squat"]{--c:var(--squat)} .mx[data-cat="bench"]{--c:var(--bench)} .mx[data-cat="dead"]{--c:var(--dead)} .mx[data-cat="acc"]{--c:var(--acc)}
+.mx-sum{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px}
+.mx-sum:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.mx-sum .ord{color:var(--c)}
+.mx-t{display:grid;min-width:0}
+.mx-t b{font-size:15px}
+.chev{width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin:0 4px 4px}
+.mx-sum[aria-expanded="true"] .chev{transform:rotate(-135deg);margin-bottom:-4px}
+.mx-body{border-top:1px solid var(--line);padding:12px;display:grid;grid-template-columns:minmax(0,1fr);gap:12px;background:var(--surface)}
+.mx-body > *{min-width:0}
+.subh{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--c);margin-bottom:-4px}
+.pvs{display:flex;gap:4px;overflow-x:auto;padding:6px 0 2px;scrollbar-width:thin}
+.pv{flex:none;font-size:12px;padding:3px 7px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+.pv b{font-family:var(--display)}
+.pv.dl{border-style:dashed;color:var(--muted)}
+.mx-act{display:flex;gap:8px;align-items:center}
+.btn[disabled]{opacity:.4;cursor:default}
+.btn.danger{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.btn.danger.armed{background:var(--accent);color:var(--accent-ink)}
+.btn.add{height:42px;border-style:dashed;background:transparent;color:var(--muted);font-weight:600}
+
+.chip{display:inline-block;font-family:var(--body);font-size:11px;line-height:1.5;padding:0 7px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);font-weight:600;vertical-align:1px}
+.chip.heavy{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+.chip.hyper{color:var(--bench);border-color:color-mix(in srgb,var(--bench) 40%,transparent)}
+.mx-t b .chip{font-size:10px}
+.auto{min-height:40px;display:flex;flex-direction:column;justify-content:center;font-weight:700;padding:3px 10px;border:1px dashed var(--line);border-radius:8px;font-size:14px}
+.auto small{font-size:10px;color:var(--muted);font-weight:500;line-height:1.25}
+details.fold > summary{list-style:none;cursor:pointer;display:grid;gap:2px}
+details.fold > summary::-webkit-details-marker{display:none}
+details.fold > summary h3{margin:0}
+details.fold > summary h3::after{content:" ＋";color:var(--muted);font-weight:500}
+details.fold[open] > summary h3::after{content:" －"}
+.ov{display:grid;grid-template-columns:56px repeat(3,minmax(0,1fr));column-gap:8px;align-items:baseline}
+.ovh{font-size:11px;color:var(--muted);font-weight:600;padding-bottom:4px}
+.ovrow{all:unset;box-sizing:border-box;cursor:pointer;grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:baseline;padding:9px 0 7px;border-top:1px solid var(--line);font-size:14px}
+.ovrow:focus-visible{outline:2px solid var(--accent)}
+.ovrow b.num{font-size:19px}
+.ovsub{grid-column:2/-1;color:var(--muted);font-size:11px}
+.ovl{display:inline-flex;align-items:center;gap:6px;font-weight:700}
+.ovl i{width:9px;height:9px;border-radius:2px;background:var(--c)}
+.subh2{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.06em;margin:10px 0 4px}
+table.vol{min-width:0}
+table.vol th{text-align:right}
+table.vol td.n{text-align:right;font-size:18px}
+table.vol td.n small{font-size:12px;color:var(--muted);font-weight:600}
+table.vol tr.tot td{font-weight:700;border-bottom:0}
+.vtiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.vtiles div{border:1px solid var(--line);border-radius:10px;padding:6px 8px;display:grid;background:var(--surface-2)}
+.vtiles span{font-size:12px;color:var(--muted);font-weight:600}
+.vtiles b{font-size:22px;line-height:1.1}
+.vtiles b small{font-size:13px;color:var(--muted)}
+.sheetrow{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.sstat{font-size:13px;min-width:0}
+.sstat.ok,.sstat.idle{color:var(--muted)}
+.sstat.err{color:var(--warn)}
+.card a{color:var(--bench)}
+
+.ovrow.static{cursor:default}
+.ovrow.tot{font-weight:700}
+.ovrow small.muted{font-size:12px}
+.dlv{display:block;font-size:11px;color:var(--muted);line-height:1.2}
+.ov5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));column-gap:8px;margin-top:14px}
+.ov5 .full{grid-column:1/-1;font-weight:700;color:var(--ink);font-size:12px}
+.ov5 .ovc{border-top:1px solid var(--line);padding:9px 0 7px;font-size:14px}
+.ov b.num,.ov5 b.num{font-size:19px}
+.vhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.vhead h3{margin:0}
+.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:2px;gap:2px}
+.seg button{border:0;background:transparent;border-radius:7px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px #0002}
+button.ovc{all:unset;box-sizing:border-box;cursor:pointer;border-top:1px solid var(--line);padding:9px 0 7px;border-radius:0 0 8px 8px;font-size:14px}
+button.ovc:hover{background:var(--surface-2)}
+button.ovc:focus-visible{outline:2px solid var(--accent)}
+button.ovc[aria-expanded="true"]{background:var(--surface-2);border-top-color:var(--ink)}
+.vdrop{margin-top:6px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;animation:drop .18s ease-out;transform-origin:top}
+@keyframes drop{from{opacity:0;transform:scaleY(.9)}to{opacity:1;transform:none}}
+.vdrop-h{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:2px}
+.vdrow{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+.vdrop .vdrow:first-of-type{border-top:0}
+.vdrow.lift{grid-template-columns:56px minmax(0,1fr) auto}
+.vday{font-family:var(--display);font-weight:700;color:var(--muted)}
+.vname{min-width:0}
+.vnum{text-align:right;white-space:nowrap}
+.vnum .dlv{text-align:right}
+.vday-blk{margin-top:10px}
+.vday-blk:first-of-type{margin-top:2px}
+.vday-h{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1.5px solid var(--ink)}
+.vday-h b{font-family:var(--display);font-size:17px}
+.vday-h .muted{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vday-blk .vdrow:first-of-type{border-top:0}
+.vgrid{display:grid;grid-template-columns:auto repeat(4,minmax(0,1fr));gap:4px;align-items:center}
+.vgrid .h{text-align:center;font-family:var(--display);font-weight:600;color:var(--muted);font-size:14px}
+.vgrid .rl{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding-right:6px;white-space:nowrap}
+.vgrid .rl i{width:8px;height:8px;border-radius:2px}
+.vgrid .rl.tot{color:var(--muted)}
+.vsep{grid-column:1/-1;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;margin-top:6px}
+.vc{height:44px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);display:flex;align-items:baseline;justify-content:center;gap:3px;padding-top:9px;color:var(--muted)}
+.vc b.num{font-size:19px;line-height:1;color:var(--ink)}
+.vc small{font-size:10px;font-weight:600}
+.vc.plan{background:color-mix(in srgb,var(--c) 12%,var(--surface));border-color:color-mix(in srgb,var(--c) 45%,transparent)}
+.vc.part{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 50%,transparent)}
+.vc.part b.num{color:var(--warn)}
+.vc.full{background:var(--good);border-color:var(--good)}
+.vc.full b.num,.vc.full small{color:var(--surface)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1><b id="nWeeks">8</b> 週健力日誌</h1>
+      <span class="sync" id="sync"><i></i><span>本機儲存</span></span>
+    </div>
+    <div class="weeks" id="weeks" role="group" aria-label="選擇週次"></div>
+    <div class="days" id="days" role="group" aria-label="選擇訓練日"></div>
+  </div>
+</header>
+
+<main id="main"><div class="wrap" id="view"></div></main>
+
+<div class="timer" id="timer" hidden>
+  <div class="in">
+    <span class="t" id="tTime">3:00</span>
+    <span class="lbl" id="tLbl">組間休息</span>
+    <button type="button" id="tMinus">−30</button>
+    <button type="button" id="tPlus">+30</button>
+    <button type="button" id="tStop">結束</button>
+  </div>
+</div>
+
+<div class="sheet" id="picker" hidden role="dialog" aria-modal="true" aria-labelledby="pkTitle">
+  <div class="sheet-bg" data-pk-close></div>
+  <div class="sheet-card">
+    <div class="sheet-head">
+      <span class="t" id="pkTitle">選擇重量</span>
+      <button type="button" class="btn sm" id="pkClear">用目標值</button>
+      <button type="button" class="btn sm" id="pkDone" style="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">完成</button>
+    </div>
+    <div class="wheel"><div class="wheel-hl"></div><div class="wheel-list" id="pkList" tabindex="0" aria-label="重量滾輪，每格 2.5 kg"></div></div>
+    <div class="plates pk-plates" id="pkPlates"></div>
+    <div class="pk-opts"><label><input type="checkbox" id="pkAll">套用到後面未完成的組</label></div>
+  </div>
+</div>
+
+<nav class="tabs" aria-label="主選單">
+  <div class="wrap">
+    <button class="tab" data-tab="log" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9v6M6 6v12M18 6v12M21 9v6M6 12h12"/></svg>訓練</button>
+    <button class="tab" data-tab="prog" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18M5 16l4-5 4 3 6-8"/></svg>進度</button>
+    <button class="tab" data-tab="menu" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M4 12h7M4 18h10"/><path d="M15.5 15.5l4-4 2 2-4 4H15.5z"/></svg>菜單</button>
+    <button class="tab" data-tab="guide" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/></svg>指南</button>
+  </div>
+</nav>
+
+<script>
+(() => {
+/* ---------- program: editable menu (defaults from Powerlifting_8Week_Cycle_Program.xlsx) ---------- */
+const CATS = {squat:'深蹲', bench:'臥推', dead:'硬舉', acc:'輔助'};
+const PARTS = {chest:'胸', back:'背', shoulder:'肩', legs:'腿', arms:'手臂'};
+const PART_DEF = {row:'back', ohte:'arms', ohp:'shoulder', lc:'legs', lat:'back', lr:'shoulder', pd:'arms', crow:'back', fp:'shoulder'};
+const SHEET_DEF = '1PDQZtUIER2I13lT0yUpd6xPeBLtTTwu7XuFyG15FfSY';
+// part: squat / deadlift → legs, bench → chest, accessory → chosen by the user
+function partOf(ex){ return ex.cat === 'squat' || ex.cat === 'dead' ? 'legs' : ex.cat === 'bench' ? 'chest' : (PARTS[ex.part] ? ex.part : 'back'); }
+// tag: 1-4 reps per set = heavy, 5+ = hypertrophy
+function tagOf(reps){ return reps != null && reps <= 4 ? 'heavy' : 'hyper'; }
+const TAGS = {heavy:'大重量', hyper:'肌肉量'};
+const LIFTS = {squat:'深蹲', bench:'臥推', dead:'硬舉'};
+// e: [id, day, name, en, cat, bar, main, sets, opt, reps, repsMax, start, inc, rpe, rpeStep, dlSets, dlReps, dlPct, dlRpe, rest, wNote, cue]
+const DEF_EX = [
+  ['sq',1,'比賽深蹲','Comp Squat','squat',1,'squat',5,0,5,null,100,2.5,7.5,0.5,3,5,85,6,210,'','深度破水平，專注出坑剛性，每組確實保留 2-3 下餘力。組間休息 3-4 分鐘。'],
+  ['bp1',1,'比賽臥推','Comp Pause Bench','bench',1,'bench',5,0,5,null,62.5,2.5,7.5,0.5,3,5,82.5,6,180,'','每下胸口停頓扎實 1 秒，腳掌踩實地面維持全身張力，手肘不外炸。'],
+  ['row',1,'胸部支撐划船','機台 / 啞鈴','acc',0,'',4,0,8,10,40,0,8,0,2,8,100,7,90,'40–42.5 kg','胸部緊貼靠墊，完全卸除下背負擔，拉至頂峰夾緊肩胛骨 1 秒。'],
+  ['ohte',1,'過頭三頭伸展','啞鈴 / 滑輪','acc',0,'',3,0,10,12,10,0,8,0,2,10,100,7,90,'啞鈴 10–12 kg','手肘朝前不外炸，控制離心下放 2 秒，充分拉長三頭肌長頭。'],
+  ['dl',2,'比賽硬舉','Top Sets 強度組','dead',1,'dead',2,0,3,null,150,5,7.5,0.5,1,3,85,6,240,'','起槓前拉緊虛位 (Slack Out)，背闊肌鎖死，專注離地爆發力。'],
+  ['pdl',2,'暫停硬舉','Back-off 技術組','dead',1,'',2,0,3,null,120,5,7,0.5,0,3,85,6,180,'','離地 2-3 cm 確實停頓 1.5-2 秒，保持足中重心與脊椎中立。'],
+  ['ohp',2,'站姿槓鈴肩推','Strict OHP','acc',1,'',3,1,8,null,35,2.5,7.5,0.5,2,6,77.5,6,150,'','站姿嚴格推，核心與臀部收緊，過頭後頭微前收完全鎖死，控制離心下放。'],
+  ['lc',2,'坐姿機械腿後彎舉','Leg Curl','acc',0,'',3,0,10,12,22.5,0,8,0,2,10,100,7,90,'機台 23 kg','向後勾到底頂峰擠壓 1 秒，離心控制 2 秒回位，提供後鏈膝屈且零脊椎負載。'],
+  ['bps',3,'比賽臥推 頂尖單下','Top Single','bench',1,'bench',1,0,1,null,75,2.5,8,0,1,1,87.5,6,240,'','全範圍胸口停頓 1 秒，感受高速推進，建立大重量神經適應。'],
+  ['bpw',3,'比賽臥推 工作組','Working Sets','bench',1,'bench',3,0,3,null,67.5,2.5,7.5,0.5,2,3,82.5,6,180,'','每下確實停頓，維持推力爆發力與軌跡一致性。'],
+  ['lat',3,'滑輪下拉 / 引體向上','Lat Pulldown / Pull-up','acc',0,'',4,0,8,10,null,0,8,0,2,8,100,7,90,'體感 RPE 8','肩胛下壓啟動，打造支撐臥推的堅固背部平台。'],
+  ['lr',3,'啞鈴側平舉','Lateral Raise','acc',0,'',3,0,12,15,7.5,0,8,0,2,12,100,7,75,'7–8 kg','軀幹微前傾、不借力聳肩，離心慢放，強化三角肌中束。'],
+  ['pd',3,'繩索三頭下壓','Pushdown','acc',0,'',3,0,10,12,null,0,8,0,2,10,100,7,75,'體感 RPE 8','直槓 / V 把，大臂夾緊身體兩側，底部完全鎖死手肘擠壓 1 秒。'],
+  ['psq',4,'暫停深蹲','2-Sec Pause Squat','squat',1,'',3,0,3,null,87.5,2.5,7,0.5,2,3,80,6,180,'','底部靜止默數滿 2 秒，消除牽張反射，軀幹不放鬆，專注出坑張力。'],
+  ['hbp',4,'半程臥推','板推 / 架上推','bench',1,'',4,0,4,5,70,2.5,7.5,0.5,2,5,80,6,180,'','高度設在卡關點（離胸 8-10 cm），停頓 0.5 秒後靠三頭肌爆發力蹬直鎖定。'],
+  ['crow',4,'坐姿滑輪水平划船','Cable Row','acc',0,'',3,0,10,12,40,0,8,0,2,10,100,7,90,'40–45 kg','窄握 / 對握貼身拉，頂峰肩胛骨後收夾緊 1 秒，強化臥推起槓穩定。'],
+  ['fp',4,'繩索面拉','Face Pull','acc',0,'',3,0,15,null,15,0,8,0,2,15,100,7,75,'15–20 kg','對準面部高度，大拇指朝後拉至雙耳旁，保養肩袖與後三角肌。']
+];
+const EX_KEYS = ['id','day','name','en','cat','bar','main','sets','opt','reps','repsMax','start','inc','rpe','rpeStep','dlSets','dlReps','dlPct','dlRpe','rest','wNote','cue'];
+const BLANK_EX = {day:1,name:'新動作',en:'',cat:'acc',part:'back',bar:false,main:'',sets:3,opt:0,reps:10,repsMax:null,start:null,inc:0,rpe:8,rpeStep:0,dlSets:2,dlReps:10,dlPct:100,dlRpe:7,rest:90,wNote:'',cue:''};
+function defaultProgram(){
+  return {
+    cycle:{accum:3, deload:1, waves:2, shift:1},
+    days:{1:{title:'下肢與上肢容量日',en:'Volume Day'},2:{title:'硬舉強度日',en:'Deadlift & Strict Press'},3:{title:'上肢強度日',en:'Bench Intensity & Back'},4:{title:'技術與弱點強化日',en:'Squat Pause & Bench Lockout'}},
+    base:{squat:{w:100,r:5,rpe:7.5},bench:{w:82.5,r:1,rpe:10},dead:{w:180,r:1,rpe:9}},
+    sheetId:SHEET_DEF, schema:3,
+    exercises:DEF_EX.map(a => { const o = Object.fromEntries(EX_KEYS.map((k,i) => [k, a[i]])); o.bar = !!o.bar; o.part = PART_DEF[o.id] || partOf(o); return o; })
+  };
+}
+function normalizeProgram(p){
+  const d = defaultProgram();
+  if (!p || !Array.isArray(p.exercises)) return d;
+  return {
+    cycle:Object.assign({}, d.cycle, p.cycle),
+    days:Object.assign({}, d.days, p.days),
+    base:Object.assign({}, d.base, p.base),
+    sheetId:p.sheetId ?? SHEET_DEF, schema:3,
+    exercises:p.exercises.filter(e => e && e.id).map(e => {
+      const o = Object.assign({}, BLANK_EX, e);
+      if (!p.schema){ if (o.id === 'ohp' && o.cat === 'bench') o.cat = 'acc'; if (!e.part) o.part = PART_DEF[o.id] || 'back'; }
+      if ((p.schema || 0) < 3 && (o.id === 'ohte' || o.id === 'pd') && o.part === 'chest') o.part = 'arms';
+      return o; }),
+    updatedAt:p.updatedAt || 0
+  };
+}
+
+let prog, WEEKS, DAYS, EX, EXBY, BASE, E1_LIFTS, TOTAL_WEEKS;
+function rebuild(){
+  const C = prog.cycle, len = C.accum + C.deload;
+  TOTAL_WEEKS = len * C.waves;
+  WEEKS = Array.from({length:TOTAL_WEEKS}, (_, k) => {
+    const wave = Math.floor(k / len), pos = k % len, deload = pos >= C.accum;
+    const wv = C.waves > 1 ? `波${wave+1} ` : '';
+    return {n:k+1, wave, pos, deload, label: deload ? `${wv}減量` : `${wv}累積${pos+1}`};
+  });
+  DAYS = prog.days;
+  EX = prog.exercises;
+  const counter = {};
+  EX.forEach(e => { counter[e.day] = (counter[e.day] || 0) + 1; e.ord = String(counter[e.day]); });
+  EXBY = Object.fromEntries(EX.map(e => [e.id, e]));
+  BASE = {};
+  for (const l in LIFTS){ const b = prog.base[l]; BASE[l] = {label:LIFTS[l], e1:e1rm(b.w, b.r, b.rpe), src:`${fmt(b.w)} kg × ${b.r} @ ${fmt(b.rpe)}`}; }
+  E1_LIFTS = {squat:[], bench:[], dead:[]};
+  EX.forEach(e => { if (E1_LIFTS[e.main]) E1_LIFTS[e.main].push(e.id); });
+  if (ui.week > TOTAL_WEEKS) ui.week = TOTAL_WEEKS;
+}
+
+function firstNum(v){ const m = String(v ?? '').match(/\d+(\.\d+)?/); return m ? parseFloat(m[0]) : null; }
+function e1rm(w, reps, rpe){ const n = reps + (10 - rpe); return n <= 1 ? w : w * (1 + n / 30); }
+function fmt(n){ return (Math.round(n * 100) / 100).toString(); }
+function r25(v){ return Math.round(v / 2.5) * 2.5; }
+function weekInfo(week){
+  const C = prog.cycle, len = C.accum + C.deload, k = week - 1;
+  return {wave:Math.floor(k / len), pos:k % len, deload:(k % len) >= C.accum};
+}
+
+// prescription for an exercise in a given week, computed from the menu
+function rx(ex, week){
+  const C = prog.cycle, wi = weekInfo(week), hasW = ex.start != null && ex.start !== '';
+  if (wi.deload){
+    if (!ex.dlSets) return {cancelled:true};
+    const last = hasW ? ex.start + (wi.wave * C.shift + C.accum - 1) * ex.inc : null;
+    const w = last == null ? null : r25(last * ex.dlPct / 100);
+    return {w, wText:w == null ? (ex.wNote || '自訂重量') : fmt(w), rows:ex.dlSets, optFrom:null, setsText:String(ex.dlSets),
+      reps:ex.dlReps, repsText:String(ex.dlReps), rpe:fmt(ex.dlRpe), note:'減量週', deload:true};
+  }
+  const steps = wi.wave * C.shift + wi.pos;
+  const w = hasW ? r25(ex.start + steps * ex.inc) : null;
+  const opt = ex.opt || 0;
+  return {w, wText:w == null ? (ex.wNote || '自訂重量') : fmt(w), rows:ex.sets + opt, optFrom:opt ? ex.sets : null,
+    setsText:opt ? `${ex.sets}-${ex.sets + opt}` : String(ex.sets), reps:ex.reps, repsText:ex.repsMax ? `${ex.reps}-${ex.repsMax}` : String(ex.reps),
+    rpe:fmt(Math.min(10, ex.rpe + wi.pos * ex.rpeStep)), note:null};
+}
+function exercisesFor(day){ return EX.filter(e => e.day === day); }
+
+/* ---------- state ---------- */
+const LS_KEY = 'pl8.sessions.v1', LS_UI = 'pl8.ui.v1', LS_CNS = 'pl8.cns.v1';
+function lsGet(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }
+function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+
+let sessions = lsGet(LS_KEY, {});
+const ui = Object.assign({week:1, day:1, tab:'log'}, lsGet(LS_UI, {}));
+const LS_PROG = 'pl8.program.v1';
+prog = normalizeProgram(lsGet(LS_PROG, null));
+rebuild();
+const openEx = new Set();
+let resetArm = false, delArm = null;
+let cns = lsGet(LS_CNS, {});
+const key = (w, d) => `w${w}d${d}`;
+const todayISO = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset()*6e4).toISOString().slice(0,10); };
+
+function getSession(w, d){ return sessions[key(w,d)] || null; }
+function ensureSession(w, d){
+  const k = key(w, d);
+  if (!sessions[k]) sessions[k] = {week:w, day:d, date:null, done:false, note:'', sets:{}};
+  return sessions[k];
+}
+function setRow(s, exId, i){
+  s.sets[exId] = s.sets[exId] || [];
+  while (s.sets[exId].length <= i) s.sets[exId].push({w:'', r:'', rpe:'', ok:false});
+  return s.sets[exId][i];
+}
+function dayCounts(w, d){
+  const s = getSession(w, d); let total = 0, done = 0;
+  for (const ex of exercisesFor(d)){
+    const p = rx(ex, w); if (p.cancelled) continue;
+    const req = p.optFrom ?? p.rows; total += req;
+    const arr = s?.sets?.[ex.id] || [];
+    done += Math.min(req, arr.filter(x => x.ok).length);
+  }
+  return {total, done, finished: !!s?.done};
+}
+
+/* ---------- persistence: cloud (db, private per person) with local cache ---------- */
+let col = null, cloudOn = false;
+const dirty = new Set(), inflight = new Set();
+let saveTimer = null;
+function touch(k){
+  sessions[k].updatedAt = Date.now();
+  lsSet(LS_KEY, sessions);
+  markSheetDirty();
+  dirty.add(k);
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 700);
+}
+function touchProg(){
+  prog.updatedAt = Date.now();
+  lsSet(LS_PROG, prog);
+  markSheetDirty();
+  dirty.add('program');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 700);
+}
+const bodyFor = k => JSON.parse(JSON.stringify(k === 'program' ? prog : sessions[k]));
+async function flush(){
+  if (!cloudOn) { dirty.clear(); return; }
+  for (const k of [...dirty]){
+    if (inflight.has(k)) continue;
+    dirty.delete(k); inflight.add(k);
+    try { await col.doc(k).set(bodyFor(k)); }
+    catch (e) {
+      if (e && e.code === 'unavailable') { dirty.add(k); setTimeout(flush, 1500 + Math.random()*1500); }
+      else if (e && (e.code === 'invalid_argument' || e.code === 'revoked' || e.code === 'not_granted')) { setSync(false, '雲端無法寫入，改存本機'); cloudOn = false; }
+      else if (e && e.code === 'quota_exceeded') { setSync(false, '雲端空間已滿'); }
+    }
+    finally { inflight.delete(k); }
+  }
+  if (dirty.size) { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 700); }
+}
+function setSync(on, text){
+  const el = document.getElementById('sync');
+  el.classList.toggle('on', on);
+  el.querySelector('span').textContent = text;
+}
+let pendingRender = false;
+function typing(){ const a = document.activeElement; return a && /INPUT|TEXTAREA|SELECT/.test(a.tagName) && document.getElementById('view').contains(a); }
+document.addEventListener('focusout', () => setTimeout(() => { if (pendingRender && !typing()) { pendingRender = false; render(); } }, 50));
+
+/* ---------- rest timer ---------- */
+let tEnd = 0, tTick = null, tLabel = '';
+const tEl = document.getElementById('timer');
+function startTimer(sec, label){
+  tEnd = Date.now() + sec*1000; tLabel = label;
+  tEl.hidden = false; tEl.classList.remove('over');
+  clearInterval(tTick); tTick = setInterval(tickTimer, 250); tickTimer();
+}
+function tickTimer(){
+  const left = Math.round((tEnd - Date.now())/1000);
+  const a = Math.abs(left), txt = `${left < 0 ? '+' : ''}${Math.floor(a/60)}:${String(a%60).padStart(2,'0')}`;
+  document.getElementById('tTime').textContent = txt;
+  document.getElementById('tLbl').textContent = left < 0 ? '休息結束，下一組' : tLabel;
+  if (left <= 0 && !tEl.classList.contains('over')){ tEl.classList.add('over'); try { navigator.vibrate && navigator.vibrate([200,100,200]); } catch {} }
+}
+document.getElementById('tMinus').onclick = () => { tEnd -= 30000; tEl.classList.remove('over'); tickTimer(); };
+document.getElementById('tPlus').onclick = () => { tEnd += 30000; tEl.classList.remove('over'); tickTimer(); };
+document.getElementById('tStop').onclick = () => { clearInterval(tTick); tEl.hidden = true; };
+
+/* ---------- rendering ---------- */
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+const RPES = ['6','6.5','7','7.5','8','8.5','9','9.5','10'];
+
+function plates(total){
+  if (!total || total < 20) return '';
+  let side = (total - 20) / 2; const out = [];
+  for (const p of [25,20,15,10,5,2.5,1.25]) while (side >= p - 1e-9){ out.push(p); side -= p; }
+  if (!out.length) return '<span>空槓 20 kg</span>';
+  const cls = p => p >= 25 ? 'p25' : p >= 20 ? 'p20' : p >= 15 ? 'p15' : p >= 10 ? 'p10' : p >= 5 ? 'p5' : p >= 2.5 ? 'p2' : 'p1';
+  return '<span>每邊</span>' + out.map(p => `<span class="plate ${cls(p)}">${fmt(p)}</span>`).join('') + (side > 0.01 ? `<span>+${fmt(side)}</span>` : '');
+}
+
+function renderHeader(){
+  document.getElementById('nWeeks').textContent = TOTAL_WEEKS;
+  document.getElementById('weeks').innerHTML = WEEKS.map(w => {
+    const pips = [1,2,3,4].map(d => `<span class="${dayCounts(w.n,d).finished ? 'on' : ''}"></span>`).join('');
+    return `<button type="button" class="wk${w.deload?' deload':''}" data-week="${w.n}" aria-pressed="${ui.week===w.n}"><span class="n">W${w.n}</span><span class="l">${w.label}</span><span class="pips">${pips}</span></button>`;
+  }).join('');
+  document.getElementById('days').innerHTML = [1,2,3,4].map(d => {
+    const c = dayCounts(ui.week, d);
+    return `<button type="button" class="dy" data-day="${d}" aria-pressed="${ui.day===d}">Day ${d}${c.finished ? '<span class="ok" aria-label="已完成">✓</span>' : ''}</button>`;
+  }).join('');
+  const sel = document.querySelector('.wk[aria-pressed="true"]');
+  if (sel) sel.scrollIntoView({inline:'nearest', block:'nearest'});
+  document.querySelector('.top').hidden = false;
+  document.getElementById('days').hidden = ui.tab !== 'log';
+  document.getElementById('weeks').hidden = ui.tab === 'menu';
+}
+
+function renderLog(){
+  const w = ui.week, d = ui.day, wk = WEEKS[w-1], s = getSession(w, d), c = dayCounts(w, d);
+  let h = `<div class="dayhead">
+    <span class="eyebrow">第 ${w} 週 · ${wk.label} · Day ${d}</span>
+    <h2>${DAYS[d].title}</h2>
+    <span class="sub">${DAYS[d].en}</span>
+    <div class="meter"><div class="bar"><span style="width:${c.total ? Math.round(c.done/c.total*100) : 0}%"></span></div><span class="num">${c.done} / ${c.total} 組</span></div>
+  </div>`;
+  if (wk.deload) h += `<div class="banner"><b>減量週</b>：組數與重量依菜單的減量設定調降，輕鬆收手，讓中樞神經與關節徹底恢復。</div>`;
+
+  for (const ex of exercisesFor(d)){
+    const p = rx(ex, w);
+    h += `<section class="ex" data-cat="${ex.cat}" data-ex="${ex.id}">
+      <div class="ex-head">
+        <div class="ex-title"><span class="ord">${ex.ord}</span><h3>${ex.name}</h3></div>`;
+    if (p.cancelled){
+      h += `</div><div class="cancelled">本週取消（減量休息）</div></section>`;
+      continue;
+    }
+    const wShow = p.w == null ? `<span class="big" style="font-size:20px">${esc(p.wText)}</span>` : `<span class="big">${fmt(p.w)}<small>kg</small></span>`;
+    h += `<div class="rx">${wShow}<span class="meta"><b>${p.setsText}</b> 組 × <b>${p.repsText}</b> 下</span><span class="meta">RPE <b>${p.rpe}</b></span><span class="chip">${PARTS[partOf(ex)]}</span><span class="chip ${tagOf(p.reps)}">${TAGS[tagOf(p.reps)]}</span>${p.note ? `<span class="note-pill">${esc(p.note)}</span>` : ''}${p.w != null && ex.wNote ? `<span class="small muted">${esc(ex.wNote)}</span>` : ''}</div>`;
+    if (ex.bar) h += `<div class="plates" data-plates>${plates(p.w)}</div>`;
+    h += `</div><details class="cue"><summary>技術要點</summary><p>${esc(ex.cue || '尚未填寫，可到「菜單」頁新增。')}</p></details>
+      <div class="sets"><div class="srow hd"><span style="text-align:center">組</span><span>重量</span><span>次數</span><span>RPE</span><span style="text-align:center">完成</span></div>`;
+    const arr = s?.sets?.[ex.id] || [];
+    for (let i = 0; i < p.rows; i++){
+      const r = arr[i] || {w:'',r:'',rpe:'',ok:false};
+      const opt = p.optFrom != null && i >= p.optFrom;
+      const id = `${ex.id}-${i}`;
+      h += `<div class="srow${r.ok?' done':''}${opt?' opt':''}" data-i="${i}">
+        <span class="n">${i+1}</span>
+        <span class="fld"><button type="button" class="wbtn" id="w-${id}" data-wpick aria-label="第 ${i+1} 組重量，點選用滾輪調整">${r.w ? esc(r.w) : `<span class="ph">${p.w ?? '—'}</span>`}</button></span>
+        <span class="fld"><button type="button" class="wbtn" id="r-${id}" data-rpick aria-label="第 ${i+1} 組次數，點選用滾輪調整">${esc(r.r || p.reps || '')}</button></span>
+        <label class="fld"><select id="p-${id}" data-f="rpe" class="${r.rpe?'':'empty'}" aria-label="第 ${i+1} 組 RPE"><option value="">${esc(p.rpe)}</option>${RPES.map(v => `<option${r.rpe===v?' selected':''}>${v}</option>`).join('')}</select></label>
+        <button type="button" class="chk" data-chk aria-pressed="${r.ok}" aria-label="完成第 ${i+1} 組">${CHECK}</button>
+      </div>`;
+    }
+    h += `</div></section>`;
+  }
+
+  h += `<div class="card">
+    <h3>今日紀錄</h3>
+    <div class="row2" style="margin-bottom:8px"><label class="small muted" for="dateIn">訓練日期</label><input type="date" class="datein" id="dateIn" value="${esc(s?.date || '')}"></div>
+    <textarea id="noteIn" placeholder="睡眠、晨間心率、熱身手感、哪一組比預期重…">${esc(s?.note || '')}</textarea>
+  </div>
+  <button type="button" class="btn primary${c.finished?' is-done':''}" id="finish">${c.finished ? '✓ 已完成本日訓練' : '完成本日訓練'}</button>`;
+  return h;
+}
+
+function weekBest(){
+  // best e1RM per lift per week from completed sets
+  const res = {squat:Array(TOTAL_WEEKS).fill(null), bench:Array(TOTAL_WEEKS).fill(null), dead:Array(TOTAL_WEEKS).fill(null)};
+  for (const k in sessions){
+    const s = sessions[k]; if (!s || !s.sets || s.week > TOTAL_WEEKS) continue;
+    for (const lift in E1_LIFTS){
+      for (const id of E1_LIFTS[lift]){
+        const ex = EXBY[id], p = rx(ex, s.week);
+        for (const r of s.sets[id] || []){
+          if (!r.ok) continue;
+          const w = firstNum(r.w) ?? p.w, reps = firstNum(r.r) ?? p.reps, rpe = firstNum(r.rpe) ?? firstNum(p.rpe);
+          if (!w || !reps || !rpe) continue;
+          const v = e1rm(w, reps, Math.min(10, rpe));
+          if (res[lift][s.week-1] == null || v > res[lift][s.week-1]) res[lift][s.week-1] = v;
+        }
+      }
+    }
+  }
+  return res;
+}
+
+function liftChart(vals, base, color){
+  const W = 320, H = 96, L = 30, R = 8, T = 10, B = 20;
+  const pts = vals.map((v,i) => v == null ? null : [i, v]).filter(Boolean);
+  const all = pts.map(p => p[1]).concat(base);
+  let lo = Math.floor((Math.min(...all) - 3) / 5) * 5, hi = Math.ceil((Math.max(...all) + 3) / 5) * 5;
+  if (hi - lo < 10) hi = lo + 10;
+  const N = vals.length, x = i => L + i * (W - L - R) / Math.max(1, N - 1), y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  let g = `<line x1="${L}" x2="${W-R}" y1="${y(hi)}" y2="${y(hi)}" stroke="var(--line)"/><line x1="${L}" x2="${W-R}" y1="${y(lo)}" y2="${y(lo)}" stroke="var(--line)"/>`;
+  g += `<text x="${L-6}" y="${y(hi)+4}" text-anchor="end">${hi}</text><text x="${L-6}" y="${y(lo)+4}" text-anchor="end">${lo}</text>`;
+  g += `<line x1="${L}" x2="${W-R}" y1="${y(base)}" y2="${y(base)}" stroke="var(--muted)" stroke-dasharray="3 3"/>`;
+  g += `<text x="${W-R}" y="${y(base)-4}" text-anchor="end">基準 ${fmt(base)}</text>`;
+  const every = Math.ceil(N / 10);
+  for (let i = 0; i < N; i++) if (i % every === 0 || i === N - 1) g += `<text x="${x(i)}" y="${H-4}" text-anchor="middle">W${i+1}</text>`;
+  if (pts.length > 1) g += `<polyline fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="${pts.map(p => `${x(p[0])},${y(p[1])}`).join(' ')}"/>`;
+  pts.forEach((p, j) => { g += `<circle cx="${x(p[0])}" cy="${y(p[1])}" r="${j === pts.length-1 ? 4.5 : 3}" fill="${color}" stroke="var(--surface)" stroke-width="1.5"/>`; });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="每週最佳估算 1RM">${g}</svg>`;
+}
+
+function renderProg(){
+  let doneDays = 0, setsDone = 0, tonnage = 0;
+  for (let w = 1; w <= TOTAL_WEEKS; w++) for (let d = 1; d <= 4; d++) if (dayCounts(w,d).finished) doneDays++;
+  for (const k in sessions){
+    const s = sessions[k];
+    for (const id in (s.sets || {})){
+      const ex = EXBY[id]; if (!ex) continue; const p = rx(ex, s.week);
+      for (const r of s.sets[id]) if (r.ok){ setsDone++; const w = firstNum(r.w) ?? p.w, reps = firstNum(r.r) ?? p.reps; if (w && reps) tonnage += w * reps; }
+    }
+  }
+  let h = `<div class="dayhead"><span class="eyebrow">${TOTAL_WEEKS} 週週期進度</span><h2>訓練進度</h2></div>
+  ${renderVolume(ui.week, true)}
+  ${renderSheetCard()}
+  <div class="stats">
+    <div class="stat"><div class="k">完成訓練日</div><div class="v">${doneDays}<small> / ${TOTAL_WEEKS * 4}</small></div></div>
+    <div class="stat"><div class="k">完成組數</div><div class="v">${setsDone}</div></div>
+    <div class="stat"><div class="k">總訓練量</div><div class="v">${tonnage >= 1000 ? fmt(tonnage/1000) + '<small> t</small>' : Math.round(tonnage) + '<small> kg</small>'}</div></div>
+  </div>
+  <div class="card"><h3>出席表</h3><div class="tbl-wrap"><div class="grid8" style="--n:${TOTAL_WEEKS}"><span></span>${WEEKS.map(w => `<span class="h">W${w.n}</span>`).join('')}`;
+  for (let d = 1; d <= 4; d++){
+    h += `<span class="rl">D${d}</span>`;
+    for (let w = 1; w <= TOTAL_WEEKS; w++){
+      const c = dayCounts(w, d), cls = c.finished ? 'full' : c.done ? 'part' : '';
+      h += `<button type="button" class="cell ${cls}${WEEKS[w-1].deload?' dl':''}" data-go="${w}-${d}" aria-label="第 ${w} 週 Day ${d}">${c.finished ? '✓' : c.done ? c.done : ''}</button>`;
+    }
+  }
+  h += `</div></div><p class="small muted" style="margin:8px 0 0">綠色＝已完成，橘色數字＝已做組數，虛線框＝減量週。點格子跳到該日。</p></div>`;
+
+  h += renderTrend();
+
+  const best = weekBest();
+  h += `<div class="card"><h3>估算 1RM 走勢</h3><p class="small muted" style="margin:0 0 10px">以完成組的重量 × 次數 + 保留次數（10 − RPE）推算，每週取最佳。未填的欄位用課表目標值。</p>`;
+  const colors = {squat:'var(--squat)', bench:'var(--bench)', dead:'var(--dead)'};
+  for (const lift of ['squat','bench','dead']){
+    if (!E1_LIFTS[lift].length) continue;
+    const vals = best[lift], b = BASE[lift], last = [...vals].reverse().find(v => v != null);
+    const dlt = last != null ? last - b.e1 : null;
+    h += `<div class="lift" style="--c:${colors[lift]}"><div class="top-l"><span class="name"><i></i>${b.label}</span>
+      <span>${last != null ? `<span class="val">${fmt(last)}<small> kg</small></span> <span class="delta ${dlt >= 0 ? 'up' : 'down'}">${dlt >= 0 ? '+' : ''}${fmt(dlt)}</span>` : `<span class="small muted">尚無紀錄</span>`}</span></div>
+      ${liftChart(vals, b.e1, colors[lift])}
+      <span class="small muted">基準：${b.src}</span></div>`;
+  }
+  h += `</div>`;
+
+  const list = Object.values(sessions).filter(s => DAYS[s.day] && Object.values(s.sets || {}).some(a => a.some(r => r.ok)) || s.done)
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.week*10+b.day) - (a.week*10+a.day));
+  h += `<div class="card"><h3>訓練紀錄</h3>`;
+  if (!list.length) h += `<p class="empty">還沒有紀錄。在「訓練」頁勾選完成的組，紀錄就會出現在這裡。</p>`;
+  else h += `<div class="hist">` + list.map(s => { const c = dayCounts(s.week, s.day);
+      return `<button type="button" data-go="${s.week}-${s.day}"><span class="wd">W${s.week} · D${s.day}</span><span class="s">${esc(DAYS[s.day].title)}${s.date ? ` · ${s.date.slice(5).replace('-','/')}` : ''}${s.note ? ' · 有筆記' : ''}</span><span class="c">${c.finished ? '✓ ' : ''}${c.done}/${c.total}</span></button>`; }).join('') + `</div>`;
+  h += `</div>`;
+  return h;
+}
+
+/* ---------- weight over time (line chart) ---------- */
+const CAT_COLOR = {squat:'var(--squat)', bench:'var(--bench)', dead:'var(--dead)', acc:'var(--accent)'};
+let trendPts = [], trendGeo = null;
+function trendData(exId){
+  const ex = EXBY[exId], out = [];
+  for (const k in sessions){
+    const s = sessions[k]; if (!s || !s.date || !s.sets?.[exId]) continue;
+    const p = rx(ex, s.week);
+    let top = null, reps = null;
+    for (const r of (s.sets?.[exId] || [])){
+      if (!r.ok) continue;
+      const w = firstNum(r.w) ?? p.w; if (w == null) continue;
+      if (top == null || w > top){ top = w; reps = firstNum(r.r) ?? p.reps; }
+    }
+    if (top == null) continue;
+    out.push({t:Date.parse(s.date + 'T00:00:00'), date:s.date, week:s.week, day:s.day, top, reps, plan:p.w});
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+function renderTrend(){
+  const exId = EXBY[ui.chartEx] ? ui.chartEx : (EX[0]?.id), ex = EXBY[exId], color = CAT_COLOR[ex.cat];
+  const opts = [1,2,3,4].map(d => `<optgroup label="Day ${d}">${exercisesFor(d).map(e => `<option value="${e.id}"${e.id===exId?' selected':''}>${e.name}</option>`).join('')}</optgroup>`).join('');
+  trendGeo = null; trendPts = exId ? trendData(exId) : [];
+  if (!exId) return `<div class="card"><h3>重量趨勢</h3><p class="empty">菜單裡還沒有動作。</p></div>`;
+  let h = `<div class="card"><h3>重量趨勢</h3>
+    <div class="ctl"><select id="chartEx" aria-label="選擇動作">${opts}</select></div>`;
+  if (!trendPts.length){
+    return h + `<p class="empty">這個動作還沒有紀錄。勾選完成的組後，這裡會依訓練日期畫出每次的最高重量。</p></div>`;
+  }
+  const W = 340, H = 210, L = 38, R = 16, T = 22, B = 26;
+  const vals = trendPts.flatMap(p => p.plan != null ? [p.top, p.plan] : [p.top]);
+  let mn = Math.min(...vals), mx = Math.max(...vals);
+  const step = [2.5,5,10,20,25,50].find(s => (Math.ceil(mx/s) - Math.floor(mn/s)) <= 4) || 50;
+  let lo = Math.floor(mn/step)*step, hi = Math.ceil(mx/step)*step;
+  if (hi - lo < step*2){ lo -= step; hi += step; }
+  if (lo < 0) lo = 0;
+  let t0 = trendPts[0].t, t1 = trendPts[trendPts.length-1].t;
+  if (t1 - t0 < 864e5*6){ const mid = (t0+t1)/2; t0 = mid - 864e5*3; t1 = mid + 864e5*3; }
+  const x = t => L + (t - t0) / (t1 - t0) * (W - L - R), y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  trendGeo = {W, L, R, T, B, H, x, y, color};
+  let g = '';
+  for (let v = lo; v <= hi + 1e-9; v += step){
+    g += `<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/>`;
+    g += `<text x="${L-6}" y="${y(v)+4}" text-anchor="end">${fmt(v)}</text>`;
+  }
+  const n = trendPts.length, idxs = [...new Set(n <= 4 ? trendPts.map((_,i) => i) : [0, Math.round((n-1)/3), Math.round(2*(n-1)/3), n-1])];
+  for (const i of idxs){ const p = trendPts[i], [, m, d] = p.date.split('-'); g += `<text x="${x(p.t)}" y="${H-6}" text-anchor="middle">${+m}/${+d}</text>`; }
+  const plan = trendPts.filter(p => p.plan != null);
+  if (plan.length > 1) g += `<polyline fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4" points="${plan.map(p => `${x(p.t)},${y(p.plan)}`).join(' ')}"/>`;
+  else if (plan.length === 1) g += `<circle cx="${x(plan[0].t)}" cy="${y(plan[0].plan)}" r="3" fill="none" stroke="var(--muted)" stroke-width="1.5"/>`;
+  if (n > 1) g += `<polyline fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${trendPts.map(p => `${x(p.t)},${y(p.top)}`).join(' ')}"/>`;
+  g += `<line id="tx" x1="0" x2="0" y1="${T}" y2="${H-B}" stroke="var(--muted)" stroke-width="1" visibility="hidden"/>`;
+  trendPts.forEach((p, i) => { g += `<circle data-pt="${i}" cx="${x(p.t)}" cy="${y(p.top)}" r="4" fill="${color}" stroke="var(--surface)" stroke-width="2"/>`; });
+  const last = trendPts[n-1];
+  g += `<text class="val-lbl" x="${Math.min(x(last.t), W-R)}" y="${y(last.top)-10}" text-anchor="${x(last.t) > W-60 ? 'end' : 'middle'}">${fmt(last.top)}</text>`;
+  h += `<div class="legend"><span style="--c:${color}"><i></i>實際最高重量</span><span><i class="dash"></i>課表目標</span></div>
+    <div class="trend"><svg class="chart" id="trendSvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${ex.name} 重量隨時間變化">${g}</svg><div class="tip" id="tip" hidden></div></div>
+    <details class="tblv"><summary>數據表</summary><div class="tbl-wrap"><table><thead><tr><th>日期</th><th>週 / 日</th><th>最高重量</th><th>次數</th><th>目標</th></tr></thead><tbody>
+    ${trendPts.slice().reverse().map(p => `<tr><td>${p.date}</td><td>W${p.week} D${p.day}</td><td class="n">${fmt(p.top)}</td><td>${p.reps ?? ''}</td><td>${p.plan != null ? fmt(p.plan) : '—'}</td></tr>`).join('')}
+    </tbody></table></div></details></div>`;
+  return h;
+}
+function bindTrend(){
+  const svg = document.getElementById('trendSvg'); if (!svg || !trendGeo) return;
+  const tip = document.getElementById('tip'), cross = svg.querySelector('#tx');
+  const show = ev => {
+    const rect = svg.getBoundingClientRect(), vx = (ev.clientX - rect.left) / rect.width * trendGeo.W;
+    let best = 0, bd = Infinity;
+    trendPts.forEach((p, i) => { const d = Math.abs(trendGeo.x(p.t) - vx); if (d < bd){ bd = d; best = i; } });
+    const p = trendPts[best], px = trendGeo.x(p.t);
+    cross.setAttribute('x1', px); cross.setAttribute('x2', px); cross.setAttribute('visibility', 'visible');
+    svg.querySelectorAll('[data-pt]').forEach(c => c.setAttribute('r', +c.dataset.pt === best ? 6 : 4));
+    tip.hidden = false;
+    tip.innerHTML = `${p.date.slice(5).replace('-','/')} · W${p.week} D${p.day}<br><b>${fmt(p.top)} kg</b>${p.reps ? ` × ${p.reps}` : ''}${p.plan != null ? `<br>目標 ${fmt(p.plan)} kg` : ''}`;
+    const left = px / trendGeo.W * rect.width, half = tip.offsetWidth / 2;
+    tip.style.left = Math.max(half, Math.min(rect.width - half, left)) + 'px';
+  };
+  svg.addEventListener('pointermove', show);
+  svg.addEventListener('pointerdown', show);
+  svg.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse'){ tip.hidden = true; cross.setAttribute('visibility','hidden'); svg.querySelectorAll('[data-pt]').forEach(c => c.setAttribute('r', 4)); } });
+}
+
+/* ---------- wheel picker: weight (2.5 kg steps) and reps ---------- */
+const IH = 44;
+const MODES = {
+  w:{vals:Array.from({length:161}, (_, k) => k * 2.5), unit:'kg', label:'重量'},   // 0 – 400 kg
+  p:{vals:Array.from({length:21}, (_, k) => k * 2.5), unit:'kg', label:'每週增量'},  // 0 – 50 kg
+  r:{vals:Array.from({length:30}, (_, k) => k + 1), unit:'下', label:'次數'}       // 1 – 30 reps
+};
+const pk = {el:document.getElementById('picker'), list:document.getElementById('pkList'), ex:null, i:0, idx:0, mode:null, vals:[]};
+function pkBuild(mode){
+  if (pk.mode === mode) return;
+  pk.mode = mode; pk.vals = MODES[mode].vals; pk.idx = 0;
+  pk.list.innerHTML = pk.vals.map((v, k) => `<div class="wi" data-k="${k}">${fmt(v)}</div>`).join('');
+  pk.list.setAttribute('aria-label', mode === 'w' ? '重量滾輪，每格 2.5 kg' : '次數滾輪');
+  pk.el.querySelector('.wheel-hl').dataset.unit = MODES[mode].unit;
+}
+function pkIndex(v){
+  let best = 0, bd = Infinity;
+  pk.vals.forEach((x, k) => { const d = Math.abs(x - v); if (d < bd){ bd = d; best = k; } });
+  return best;
+}
+function pkSelect(k){
+  k = Math.max(0, Math.min(pk.vals.length - 1, k));
+  if (k === pk.idx && pk.list.children[k].classList.contains('sel')) return;
+  pk.list.children[pk.idx]?.classList.remove('sel');
+  pk.idx = k; pk.list.children[k].classList.add('sel');
+  document.getElementById('pkPlates').innerHTML = pk.mode === 'w' && pk.bar ? plates(pk.vals[k]) : '';
+}
+let pkRaf = 0;
+pk.list.addEventListener('scroll', () => { cancelAnimationFrame(pkRaf); pkRaf = requestAnimationFrame(() => pkSelect(Math.round(pk.list.scrollTop / IH))); });
+pk.list.addEventListener('click', e => { const it = e.target.closest('.wi'); if (it) pk.list.scrollTo({top:+it.dataset.k * IH, behavior:'smooth'}); });
+pk.list.addEventListener('keydown', e => {
+  const d = {ArrowUp:-1, ArrowDown:1, PageUp:-4, PageDown:4}[e.key];
+  if (d){ e.preventDefault(); pk.list.scrollTo({top:(pk.idx + d) * IH}); }
+  if (e.key === 'Enter') pkCommit(pk.vals[pk.idx]);
+});
+function openPicker(exId, i, mode){
+  const ex = EXBY[exId], p = rx(ex, ui.week), arr = getSession(ui.week, ui.day)?.sets?.[exId] || [];
+  const target = mode === 'w' ? p.w : p.reps;
+  let start = firstNum(arr[i]?.[mode]);
+  for (let j = i - 1; start == null && j >= 0; j--) start = firstNum(arr[j]?.[mode]);
+  const tgtText = mode === 'w' ? (p.w != null ? fmt(p.w) + ' kg' : esc(p.wText)) : `${esc(p.repsText)} 下`;
+  const later = arr.slice(i + 1, p.rows).some(r => r && r[mode]);
+  pickerOpen({mode, bar:ex.bar, target, start:start ?? target ?? (mode === 'w' ? 20 : 8),
+    title:`${esc(ex.name)} · ${MODES[mode].label}<small>第 ${i+1} 組 · 課表 ${tgtText}</small>`,
+    clearLabel:mode === 'w' ? '用目標值' : '用課表次數',
+    applyAll:i < p.rows - 1 ? !later : null,
+    onCommit:(v, all) => {
+      const s = ensureSession(ui.week, ui.day), val = v == null ? '' : fmt(v);
+      setRow(s, exId, i)[mode] = val;
+      if (all) for (let j = i + 1; j < p.rows; j++){ const r = setRow(s, exId, j); if (!r.ok) r[mode] = val; }
+      touch(key(ui.week, ui.day));
+    }});
+}
+function pickerOpen(o){
+  pkBuild(o.mode);
+  pk.bar = !!o.bar; pk.onCommit = o.onCommit;
+  document.getElementById('pkTitle').innerHTML = o.title;
+  [...pk.list.querySelectorAll('.tgt')].forEach(n => n.classList.remove('tgt'));
+  if (o.target != null) pk.list.children[pkIndex(o.target)]?.classList.add('tgt');
+  document.getElementById('pkClear').textContent = o.clearLabel;
+  document.getElementById('pkAll').checked = !!o.applyAll;
+  document.getElementById('pkAll').parentElement.hidden = o.applyAll == null;
+  pk.el.hidden = false;
+  const k = pkIndex(o.start);
+  pk.list.scrollTop = k * IH; pkSelect(k);
+  pk.list.focus({preventScroll:true});
+}
+function closePicker(){ pk.el.hidden = true; }
+function pkCommit(v){
+  const all = !document.getElementById('pkAll').parentElement.hidden && document.getElementById('pkAll').checked;
+  pk.onCommit(v, all); closePicker(); pendingRender = false; render();
+}
+document.getElementById('pkDone').onclick = () => pkCommit(pk.vals[pk.idx]);
+document.getElementById('pkClear').onclick = () => pkCommit(null);
+pk.el.querySelector('[data-pk-close]').onclick = closePicker;
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pk.el.hidden) closePicker(); });
+
+/* ---------- cycle overview (menu top) ---------- */
+function peakOf(ex){
+  let best = null;
+  for (const wk of WEEKS){ const p = rx(ex, wk.n); if (p.cancelled || p.w == null) continue; if (!best || p.w > best.w) best = {w:p.w, reps:p.reps, week:wk.n}; }
+  return best;
+}
+function primaryLift(l){
+  const cands = EX.filter(e => e.cat === l && e.start != null);
+  const pool = cands.some(e => e.main === l) ? cands.filter(e => e.main === l) : cands;
+  let best = null;
+  for (const e of pool){ const pk = peakOf(e); if (pk && (!best || pk.w > best.pk.w)) best = {ex:e, pk}; }
+  return best;
+}
+function renderOverview(){
+  const C = prog.cycle;
+  let h = `<div class="card"><h3>週期總覽</h3>
+    <p class="small muted" style="margin:-4px 0 8px">共 <b>${TOTAL_WEEKS}</b> 週：${C.accum} 週累積${C.deload ? ` + ${C.deload} 週減量` : ''}，重複 ${C.waves} 個波浪。數字由下方菜單算出，點一列直接修改該動作。</p>
+    <div class="ov"><span class="ovh"></span><span class="ovh">W1 起始</span><span class="ovh">週期最重</span><span class="ovh">每週進步</span>`;
+  for (const l of Object.keys(LIFTS)){
+    const pl = primaryLift(l);
+    if (!pl){ h += `<span class="ovl" style="--c:var(--${l})"><i></i>${LIFTS[l]}</span><span class="muted small" style="grid-column:span 3">菜單中沒有設定重量的${LIFTS[l]}動作</span>`; continue; }
+    const ex = pl.ex, w1 = rx(ex, 1);
+    h += `<button type="button" class="ovrow" data-goex="${ex.id}" aria-label="修改${esc(ex.name)}">
+      <span class="ovl" style="--c:var(--${l})"><i></i>${LIFTS[l]}</span>
+      <span><b class="num">${fmt(w1.w)}</b> × ${w1.reps}</span>
+      <span><b class="num">${fmt(pl.pk.w)}</b> × ${pl.pk.reps} <small class="muted">W${pl.pk.week}</small></span>
+      <span>${ex.inc ? `<b class="num">+${fmt(ex.inc)}</b> kg` : '<b class="num">—</b>'}</span>
+      <small class="ovsub">${esc(ex.name)}</small></button>`;
+  }
+  return h + `</div></div>`;
+}
+
+/* ---------- weekly training volume ---------- */
+function volumeOf(week){
+  const lifts = {squat:{heavy:[0,0], hyper:[0,0]}, bench:{heavy:[0,0], hyper:[0,0]}, dead:{heavy:[0,0], hyper:[0,0]}};
+  const acc = Object.fromEntries(Object.keys(PARTS).map(k => [k, [0,0]]));
+  for (const ex of EX){
+    const p = rx(ex, week); if (p.cancelled) continue;
+    const plan = p.optFrom ?? p.rows;
+    const done = Math.min(p.rows, (getSession(week, ex.day)?.sets?.[ex.id] || []).filter(r => r.ok).length);
+    const cell = lifts[ex.cat] ? lifts[ex.cat][tagOf(p.reps)] : acc[partOf(ex)];
+    cell[0] += done; cell[1] += plan;
+  }
+  return {lifts, acc};
+}
+const sum2 = (x, y) => [x[0] + y[0], x[1] + y[1]];
+function volPick(v, kind, a, b){
+  if (kind === 'lift'){ const L = v.lifts[a]; return b === 'all' ? sum2(L.heavy, L.hyper) : L[b]; }
+  if (kind === 'sum'){ const pick = t => Object.keys(LIFTS).reduce((acc, l) => sum2(acc, v.lifts[l][t]), [0,0]); return a === 'all' ? sum2(pick('heavy'), pick('hyper')) : pick(a); }
+  return v.acc[a];
+}
+// per-exercise sets for one week: [done, planned]
+function volItems(week){
+  const out = {};
+  for (const ex of EX){
+    const p = rx(ex, week); if (p.cancelled) continue;
+    const done = Math.min(p.rows, (getSession(week, ex.day)?.sets?.[ex.id] || []).filter(r => r.ok).length);
+    out[ex.id] = {ex, p, x:[done, p.optFrom ?? p.rows]};
+  }
+  return out;
+}
+const volPart = {};   // card → expanded accessory part
+const CAT_ORDER = ['squat', 'bench', 'dead', 'acc'];
+// o: {ctx, title, hint, week, dlWeek, withDone}
+function renderVolCard(o){
+  const va = volumeOf(o.week), vd = o.dlWeek ? volumeOf(o.dlWeek) : null;
+  const ia = volItems(o.week), id = o.dlWeek ? volItems(o.dlWeek) : null;
+  const num = (x, xd) => o.withDone ? `<b class="num">${x[0]}</b> <small class="muted">/ ${x[1]}</small>`
+    : `<b class="num">${x[1]}</b>${xd === 'cancel' ? '<small class="dlv">減量 取消</small>' : xd ? `<small class="dlv">減量 ${xd[1]}</small>` : ''}`;
+  const cell = (kind, a, b) => num(volPick(va, kind, a, b), vd && volPick(vd, kind, a, b));
+  const mode = ui.volMode === 'day' ? 'day' : 'part';
+  let h = `<div class="card"><div class="vhead"><h3>${o.title}</h3>
+    <div class="seg" role="group" aria-label="觀看方式"><button type="button" data-volmode="part" aria-pressed="${mode === 'part'}">依部位</button><button type="button" data-volmode="day" aria-pressed="${mode === 'day'}">依訓練日</button></div></div>
+    <p class="small muted" style="margin:0 0 8px">${o.hint}</p>`;
+  if (mode === 'part'){
+    h += `<div class="ov"><span class="ovh">三項</span><span class="ovh">大重量</span><span class="ovh">肌肉量</span><span class="ovh">合計</span>`;
+    for (const l of Object.keys(LIFTS))
+      h += `<div class="ovrow static"><span class="ovl" style="--c:var(--${l})"><i></i>${LIFTS[l]}</span><span>${cell('lift', l, 'heavy')}</span><span>${cell('lift', l, 'hyper')}</span><span>${cell('lift', l, 'all')}</span></div>`;
+    h += `<div class="ovrow static tot"><span class="ovl">合計</span><span>${cell('sum', 'heavy')}</span><span>${cell('sum', 'hyper')}</span><span>${cell('sum', 'all')}</span></div></div>`;
+    const open = volPart[o.ctx];
+    h += `<div class="ov5"><span class="ovh full">輔助項目 <span class="muted" style="font-weight:500">· 點數字看動作</span></span>${Object.keys(PARTS).map(k => `<span class="ovh">${PARTS[k]}</span>`).join('')}
+      ${Object.keys(PARTS).map(k => `<button type="button" class="ovc" data-volpart="${k}" data-ctx="${o.ctx}" aria-expanded="${open === k}">${cell('part', k)}</button>`).join('')}</div>`;
+    if (open && PARTS[open]){
+      const list = Object.values(ia).filter(it => it.ex.cat === 'acc' && partOf(it.ex) === open);
+      h += `<div class="vdrop"><div class="vdrop-h">${PARTS[open]}的輔助動作</div>${list.length ? list.map(it =>
+        `<div class="vdrow"><span class="vday">D${it.ex.day}</span><span class="vname">${esc(it.ex.name)}</span><span class="vnum">${num(it.x, id && (id[it.ex.id]?.x || 'cancel'))}</span></div>`).join('')
+        : `<p class="empty small">這個部位目前沒有輔助動作。</p>`}</div>`;
+    }
+  } else {
+    // attendance-style grid: rows = lifts + accessory parts, columns = Day 1-4, cell = sets that day
+    const rowsDef = [...Object.keys(LIFTS).map(l => ({key:l, label:LIFTS[l], color:`var(--${l})`, match:ex => ex.cat === l})),
+      ...Object.keys(PARTS).map(k => ({key:k, label:PARTS[k], color:'var(--acc)', acc:true, match:ex => ex.cat === 'acc' && partOf(ex) === k}))];
+    const sumFor = (items, d, match) => items ? Object.values(items).filter(it => it.ex.day === d && match(it.ex)).reduce((a, it) => sum2(a, it.x), [0,0]) : null;
+    const cellHTML = (d, match, color) => {
+      const x = sumFor(ia, d, match), xd = sumFor(id, d, match);
+      if (!x[1] && !(xd && xd[1])) return `<span class="vc"></span>`;
+      if (o.withDone){
+        const cls = x[0] >= x[1] ? 'full' : x[0] ? 'part' : 'plan';
+        return `<span class="vc ${cls}" style="--c:${color}"><b class="num">${x[0]}</b><small>/${x[1]}</small></span>`;
+      }
+      return `<span class="vc plan" style="--c:${color}"><b class="num">${x[1]}</b>${xd ? `<small>減 ${xd[1]}</small>` : ''}</span>`;
+    };
+    h += `<div class="vgrid"><span></span>${[1,2,3,4].map(d => `<span class="h">D${d}</span>`).join('')}`;
+    rowsDef.forEach((r, i) => {
+      if (i === 3) h += `<span class="vsep">輔助</span>`;
+      h += `<span class="rl"><i style="background:${r.color}"></i>${r.label}</span>${[1,2,3,4].map(d => cellHTML(d, r.match, r.color)).join('')}`;
+    });
+    h += `<span class="rl tot">合計</span>${[1,2,3,4].map(d => cellHTML(d, () => true, 'var(--ink)')).join('')}</div>
+      <p class="small muted" style="margin:8px 0 0">${o.withDone ? '格子內為已完成 / 計畫組數；綠色＝做完，橘色＝做了一部分。' : `格子內為該天的組數${id ? '，小字為減量週' : ''}。空白＝這天沒有練。`}</p>`;
+  }
+  return h + `</div>`;
+}
+// progress / guide: one week, done / planned
+function renderVolume(week, withDone){
+  return renderVolCard({ctx:withDone ? 'prog' : 'guide', week, withDone,
+    title:`第 ${week} 週訓練容量${WEEKS[week-1]?.deload ? ' <span class="note-pill">減量週</span>' : ''}`,
+    hint:(withDone ? '組數：已完成 / 計畫。上方切換週次。' : '本週計畫組數。') + '1-4 下為大重量，5 下以上為肌肉量。'});
+}
+// menu: weekly volume of the cycle (accumulation week, deload week underneath)
+function renderVolumeOverview(){
+  const C = prog.cycle, dl = C.deload ? C.accum + 1 : null;
+  return renderVolCard({ctx:'menu', week:1, dlWeek:dl, withDone:false, title:'每週容量總覽',
+    hint:`累積週每週的計畫組數${dl ? '，小字為減量週' : ''}（選做組不計）。1-4 下為大重量，5 下以上為肌肉量。`});
+}
+
+/* ---------- Google Sheet sync (Apps Script web app; works offline-first) ---------- */
+const SHEET_URL_KEY = 'pl8.sheetUrl', PENDING_KEY = 'pl8.sheetPending';
+let sheetStatus = {state:'idle', msg:'', at:lsGet('pl8.sheetAt', null)};
+const sheetUrl = id => `https://docs.google.com/spreadsheets/d/${id}/edit`;
+const getHook = () => lsGet(SHEET_URL_KEY, '');
+let restoreArm = false, autoTimer = null;
+function markSheetDirty(){
+  lsSet(PENDING_KEY, 1);
+  clearTimeout(autoTimer);
+  if (getHook()) autoTimer = setTimeout(() => syncSheet(true), 20000);
+  updateBadge();
+}
+function updateBadge(){
+  const pending = !!lsGet(PENDING_KEY, 0), online = navigator.onLine;
+  if (!getHook()) setSync(false, online ? '尚未連結試算表' : '離線');
+  else if (sheetStatus.state === 'busy') setSync(true, '同步中…');
+  else if (!online) setSync(false, pending ? '離線 · 待同步' : '離線');
+  else setSync(!pending, pending ? '待同步' : '已同步');
+}
+function renderSheetCard(){
+  const hook = getHook(), st = sheetStatus, pending = !!lsGet(PENDING_KEY, 0);
+  const stTxt = st.state === 'busy' ? '同步中…' : st.state === 'err' ? st.msg
+    : pending && !navigator.onLine ? '目前離線，連上網路後會自動同步。'
+    : st.at ? `上次同步：${new Date(st.at).toLocaleString('zh-TW', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})}${pending ? '（有新的紀錄待同步）' : ''}` : '尚未同步';
+  return `<div class="card"><h3>Google Sheet 紀錄</h3>
+    <p class="small muted" style="margin:-4px 0 10px">紀錄先存在這支手機上，離線也能用。有網路時會自動把全部紀錄與菜單寫入試算表，試算表同時是你的備份。</p>
+    ${hook ? `<div class="sheetrow"><span class="sstat ${st.state}">${esc(stTxt)}</span>
+      <button type="button" class="btn sm" data-sync${st.state === 'busy' ? ' disabled' : ''}>立即同步</button></div>
+      <p class="small" style="margin:10px 0 0"><a href="${sheetUrl(prog.sheetId || SHEET_DEF)}" target="_blank" rel="noopener">開啟試算表</a></p>`
+      : `<p class="small" style="margin:0 0 8px;color:var(--warn)">還沒連結。請貼上 Apps Script 部署後的「網頁應用程式網址」。</p>`}
+    <details class="tblv"${hook ? '' : ' open'}><summary>連結設定與還原</summary>
+      <label class="f" style="margin-top:8px"><span>網頁應用程式網址（https://script.google.com/macros/s/…/exec）</span><input type="text" id="hookIn" data-hook value="${esc(hook)}" placeholder="貼上網址"></label>
+      <div class="row2" style="margin-top:10px"><button type="button" class="btn sm danger${restoreArm ? ' armed' : ''}" data-restore${hook ? '' : ' disabled'}>${restoreArm ? '再按一次：用試算表覆蓋這支手機的資料' : '從試算表還原'}</button></div>
+      <p class="small muted" style="margin:6px 0 0">換手機或清除瀏覽資料後，用「從試算表還原」把紀錄和菜單拿回來。</p>
+    </details></div>`;
+}
+function sheetRows(){
+  const list = Object.values(sessions).filter(s => s && s.sets).sort((a, b) => (a.date || '9').localeCompare(b.date || '9') || (a.week*10+a.day) - (b.week*10+b.day));
+  const sets = [['日期','週','Day','訓練日','動作','類別','部位','標籤','組','重量(kg)','次數','RPE','目標重量','目標次數','目標RPE','估算1RM']];
+  const days = [['日期','週','Day','訓練日','週期階段','完成組數','計畫組數','已完成','筆記']];
+  for (const s of list){
+    let any = false;
+    for (const id in s.sets){
+      const ex = EXBY[id], p = ex ? rx(ex, s.week) : {};
+      s.sets[id].forEach((r, i) => {
+        if (!r.ok) return; any = true;
+        const w = firstNum(r.w) ?? p.w ?? '', reps = firstNum(r.r) ?? p.reps ?? '', rpe = firstNum(r.rpe);
+        const est = w !== '' && reps !== '' ? Math.round(e1rm(w, reps, Math.min(10, rpe ?? firstNum(p.rpe) ?? 10)) * 10) / 10 : '';
+        sets.push([s.date || '', s.week, s.day, DAYS[s.day]?.title || '', ex ? ex.name : '（已刪除的動作）', ex ? CATS[ex.cat] : '', ex ? PARTS[partOf(ex)] : '',
+          TAGS[tagOf(reps === '' ? null : reps)], i + 1, w, reps, rpe ?? '', p.w ?? '', p.reps ?? '', p.rpe ? +p.rpe : '', est]);
+      });
+    }
+    if (any || s.done){ const c = dayCounts(s.week, s.day);
+      days.push([s.date || '', s.week, s.day, DAYS[s.day]?.title || '', WEEKS[s.week-1]?.label || '', c.done, c.total, s.done ? '是' : '否', s.note || '']); }
+  }
+  return {sets, days};
+}
+// full backup (records + menu) as text chunks, so the offline app can restore from the sheet
+function backupRows(){
+  const json = JSON.stringify({v:1, at:Date.now(), sessions, prog, cns});
+  const rows = [[new Date().toISOString()]];
+  for (let i = 0; i < json.length; i += 40000) rows.push([json.slice(i, i + 40000)]);
+  return rows;
+}
+async function syncSheet(auto){
+  const hook = getHook();
+  if (!hook || sheetStatus.state === 'busy') return;
+  if (!navigator.onLine){ sheetStatus = {state:'idle', msg:'', at:sheetStatus.at}; updateBadge(); if (ui.tab === 'prog' && !typing()) render(); return; }
+  clearTimeout(autoTimer);
+  sheetStatus = {state:'busy', msg:'', at:sheetStatus.at}; updateBadge(); if (ui.tab === 'prog' && !typing()) render();
+  const {sets, days} = sheetRows();
+  const body = JSON.stringify({sets, days, backup:backupRows()});
+  try {
+    const res = await fetch(hook, {method:'POST', body, headers:{'Content-Type':'text/plain;charset=utf-8'}});
+    const out = await res.json().catch(() => null);
+    if (!res.ok || !out || !out.ok) throw new Error(out && out.error || 'bad');
+    lsSet(PENDING_KEY, 0); lsSet('pl8.sheetAt', Date.now());
+    sheetStatus = {state:'ok', msg:'', at:Date.now()};
+  } catch (e){
+    sheetStatus = {state:'err', at:sheetStatus.at, msg:(auto ? '自動同步沒有完成：' : '') + (navigator.onLine
+      ? '連不上試算表。請確認網址正確，且 Apps Script 部署的存取權是「所有人」。' : '目前離線，連上網路後會自動同步。')};
+  }
+  updateBadge();
+  if (ui.tab === 'prog'){ if (typing()) pendingRender = true; else render(); }
+}
+async function restoreFromSheet(){
+  const hook = getHook(); if (!hook) return;
+  sheetStatus = {state:'busy', msg:'', at:sheetStatus.at}; render();
+  try {
+    const res = await fetch(hook + (hook.includes('?') ? '&' : '?') + 'action=backup');
+    const out = await res.json();
+    if (!out || !out.ok) throw new Error('bad');
+    if (!out.backup){ sheetStatus = {state:'err', msg:'試算表裡還沒有備份，先在有資料的裝置同步一次。', at:sheetStatus.at}; render(); return; }
+    const b = out.backup;
+    sessions = b.sessions || {}; prog = normalizeProgram(b.prog); cns = b.cns || {};
+    lsSet(LS_KEY, sessions); lsSet(LS_PROG, prog); lsSet(LS_CNS, cns); lsSet(PENDING_KEY, 0);
+    rebuild();
+    sheetStatus = {state:'ok', msg:'', at:Date.now()};
+  } catch (e){
+    sheetStatus = {state:'err', msg:navigator.onLine ? '讀不到試算表的備份。請確認網址正確。' : '目前離線，無法還原。', at:sheetStatus.at};
+  }
+  updateBadge(); render();
+}
+
+/* ---------- menu editor ---------- */
+const range = (a, b, st = 1) => { const o = []; for (let v = a; v <= b + 1e-9; v += st) o.push(Math.round(v * 100) / 100); return o; };
+function sel(attr, vals, cur, label = v => fmt(v), id = ''){
+  return `<select ${attr}${id ? ` id="${id}"` : ''}>${vals.map(v => { const val = v === null ? '' : v; return `<option value="${val}"${String(cur ?? '') === String(val) ? ' selected' : ''}>${label(v)}</option>`; }).join('')}</select>`;
+}
+const REST_OPTS = [45,60,75,90,120,150,180,210,240,300];
+const restLabel = v => v < 60 ? `${v} 秒` : `${fmt(v/60)} 分鐘`;
+function exSummary(ex){
+  const sets = ex.opt ? `${ex.sets}-${ex.sets + ex.opt}` : ex.sets, reps = ex.repsMax ? `${ex.reps}-${ex.repsMax}` : ex.reps;
+  const w = ex.start != null ? `${fmt(ex.start)} kg${ex.inc ? ` +${fmt(ex.inc)}/週` : ''}` : (ex.wNote || '自訂重量');
+  return `${sets}×${reps} · ${esc(w)} · RPE ${fmt(ex.rpe)}${ex.rpeStep ? `↑${fmt(ex.rpeStep)}` : ''}`;
+}
+function previewHTML(ex){
+  return WEEKS.map(wk => { const p = rx(ex, wk.n);
+    if (p.cancelled) return `<span class="pv dl">W${wk.n} 取消</span>`;
+    return `<span class="pv${wk.deload ? ' dl' : ''}"><b>W${wk.n}</b> ${p.w != null ? fmt(p.w) : '—'} · ${p.setsText}×${p.repsText} @${p.rpe}</span>`; }).join('');
+}
+function renderMenu(){
+  const C = prog.cycle;
+  let h = `<div class="dayhead"><span class="eyebrow">${TOTAL_WEEKS} 週 · ${EX.length} 個動作</span><h2>訓練菜單</h2>
+    <span class="sub">修改後，訓練頁每週的目標重量、組數、次數與 RPE 會立刻依新菜單計算。已打勾記錄的實際數字不會被改動。</span></div>
+  ${renderOverview()}
+  ${renderVolumeOverview()}`
+  h += `
+  <div class="card"><h3>週期設定</h3>
+    <div class="fgrid">
+      <label class="f"><span>累積期週數</span>${sel('data-cy="accum"', range(1,8), C.accum, v => `${v} 週`)}</label>
+      <label class="f"><span>減量週數</span>${sel('data-cy="deload"', range(0,3), C.deload, v => v ? `${v} 週` : '不安排')}</label>
+      <label class="f"><span>重複波浪數</span>${sel('data-cy="waves"', range(1,6), C.waves, v => `${v} 個波浪`)}</label>
+      <label class="f"><span>新波浪起點</span>${sel('data-cy="shift"', range(0,3), C.shift, v => v ? `比上一波 +${v} 次增量` : '回到原起點')}</label>
+    </div>
+    <p class="small muted" style="margin:10px 0 6px">一個波浪 = ${C.accum} 週累積${C.deload ? ` + ${C.deload} 週減量` : ''}，重複 ${C.waves} 次，共 <b>${TOTAL_WEEKS}</b> 週。</p>
+    <div class="cyc">${WEEKS.map(w => `<span class="${w.deload ? 'd' : ''}" title="${w.label}">${w.n}</span>`).join('')}</div>
+  </div>
+  <details class="card fold"><summary><h3>基準 PR</h3><span class="small muted">${Object.keys(LIFTS).map(l => `${LIFTS[l]} ${fmt(prog.base[l].w)}×${prog.base[l].r}`).join(' · ')}</span></summary><p class="small muted" style="margin:8px 0">進度頁的估算 1RM 會和這裡比較。</p>
+    ${Object.keys(LIFTS).map(l => { const b = prog.base[l]; return `<div class="baserow"><b>${LIFTS[l]}</b>
+      <span class="fld"><button type="button" class="wbtn" data-basew="${l}" aria-label="${LIFTS[l]}基準重量">${fmt(b.w)}</button></span>
+      <label class="f inl"><span>次</span>${sel(`data-base="${l}" data-bk="r"`, range(1,12), b.r)}</label>
+      <label class="f inl"><span>RPE</span>${sel(`data-base="${l}" data-bk="rpe"`, range(6,10,0.5), b.rpe)}</label></div>`; }).join('')}
+  </details>`;
+  for (const d of [1,2,3,4]){
+    const list = exercisesFor(d);
+    h += `<section class="mday"><div class="mday-h"><span class="eyebrow">Day ${d}</span>
+      <input class="title-in" data-dayf="title" data-day="${d}" id="dt-${d}" value="${esc(DAYS[d].title)}" aria-label="Day ${d} 名稱">
+      <input class="en-in" data-dayf="en" data-day="${d}" id="de-${d}" value="${esc(DAYS[d].en)}" placeholder="副標（可留空）" aria-label="Day ${d} 副標"></div>`;
+    list.forEach((ex, idx) => {
+      const open = openEx.has(ex.id);
+      h += `<div class="mx" data-cat="${ex.cat}" data-id="${ex.id}">
+        <button type="button" class="mx-sum" data-toggle aria-expanded="${open}">
+          <span class="ord">${ex.ord}</span>
+          <span class="mx-t"><b><span data-sumname>${esc(ex.name)}</span> <span class="chip">${PARTS[partOf(ex)]}</span> <span class="chip ${tagOf(ex.reps)}">${TAGS[tagOf(ex.reps)]}</span></b><span class="small muted" data-sum>${exSummary(ex)}</span></span>
+          <span class="chev" aria-hidden="true"></span>
+        </button>`;
+      if (open){
+        const id = ex.id;
+        h += `<div class="mx-body">
+          <div class="fgrid">
+            <label class="f full"><span>動作名稱</span><input type="text" data-pf="name" id="nm-${id}" value="${esc(ex.name)}"></label>
+            <label class="f"><span>類別</span>${sel('data-pf="cat"', Object.keys(CATS), ex.cat, v => CATS[v], 'ct-'+id)}</label>
+            ${ex.cat === 'acc' ? `<label class="f"><span>部位</span>${sel('data-pf="part"', Object.keys(PARTS), partOf(ex), v => PARTS[v], 'pt-'+id)}</label>`
+              : `<div class="f"><span>部位</span><div class="auto">${PARTS[partOf(ex)]}<small>依類別自動</small></div></div>`}
+            <div class="f"><span>標籤</span><div class="auto">${TAGS[tagOf(ex.reps)]}<small>依次數自動（1-4 下大重量，5 下以上肌肉量）</small></div></div>
+            <label class="f"><span>排在</span>${sel('data-pf="day"', [1,2,3,4], ex.day, v => `Day ${v}`, 'dy-'+id)}</label>
+            <label class="f"><span>計入 1RM 估算</span>${sel('data-pf="main"', ['', 'squat', 'bench', 'dead'], ex.main, v => v ? LIFTS[v] : '不計入', 'mn-'+id)}</label>
+            <label class="f ck"><input type="checkbox" data-pf="bar" id="br-${id}"${ex.bar ? ' checked' : ''}><span>槓鈴動作（顯示槓片）</span></label>
+          </div>
+          <div class="subh">累積期</div>
+          <div class="fgrid">
+            <label class="f"><span>W1 起始重量</span><span class="fld"><button type="button" class="wbtn" data-pick="start">${ex.start != null ? fmt(ex.start) + ' kg' : '<span class="ph">不設重量</span>'}</button></span></label>
+            <label class="f"><span>每週增加</span><span class="fld"><button type="button" class="wbtn" data-pick="inc">${ex.inc ? '+' + fmt(ex.inc) + ' kg' : '<span class="ph">不加重</span>'}</button></span></label>
+            <label class="f"><span>組數</span>${sel('data-pf="sets"', range(1,10), ex.sets, v => `${v} 組`, 'st-'+id)}</label>
+            <label class="f"><span>選做組</span>${sel('data-pf="opt"', range(0,3), ex.opt, v => v ? `+${v} 組` : '無', 'op-'+id)}</label>
+            <label class="f"><span>次數</span>${sel('data-pf="reps"', range(1,30), ex.reps, v => `${v} 下`, 'rp-'+id)}</label>
+            <label class="f"><span>次數上限</span>${sel('data-pf="repsMax"', [null, ...range(ex.reps + 1, 30)], ex.repsMax, v => v == null ? '固定次數' : `到 ${v} 下`, 'rm-'+id)}</label>
+            <label class="f"><span>RPE（第 1 週）</span>${sel('data-pf="rpe"', range(5,10,0.5), ex.rpe, fmt, 'pe-'+id)}</label>
+            <label class="f"><span>RPE 每週增加</span>${sel('data-pf="rpeStep"', [0,0.5,1], ex.rpeStep, v => v ? `+${fmt(v)}` : '不變', 'ps-'+id)}</label>
+            <label class="f"><span>組間休息</span>${sel('data-pf="rest"', REST_OPTS, ex.rest, restLabel, 'rs-'+id)}</label>
+            <label class="f"><span>重量備註</span><input type="text" data-pf="wNote" id="wn-${id}" value="${esc(ex.wNote)}" placeholder="例：啞鈴 10–12 kg"></label>
+          </div>
+          <div class="subh">減量週</div>
+          <div class="fgrid">
+            <label class="f"><span>組數</span>${sel('data-pf="dlSets"', range(0,10), ex.dlSets, v => v ? `${v} 組` : '取消（休息）', 'ds-'+id)}</label>
+            <label class="f"><span>次數</span>${sel('data-pf="dlReps"', range(1,30), ex.dlReps, v => `${v} 下`, 'dr-'+id)}</label>
+            <label class="f"><span>重量（上一週的 %）</span>${sel('data-pf="dlPct"', range(50,100,2.5), ex.dlPct, v => `${fmt(v)}%`, 'dp-'+id)}</label>
+            <label class="f"><span>RPE</span>${sel('data-pf="dlRpe"', range(5,10,0.5), ex.dlRpe, fmt, 'de-'+id)}</label>
+          </div>
+          <label class="f full"><span>技術要點</span><textarea data-pf="cue" id="cu-${id}" rows="3">${esc(ex.cue)}</textarea></label>
+          <div><div class="subh">每週目標預覽</div><div class="pvs" data-pv>${previewHTML(ex)}</div></div>
+          <div class="mx-act">
+            <button type="button" class="btn sm" data-move="-1"${idx === 0 ? ' disabled' : ''}>上移</button>
+            <button type="button" class="btn sm" data-move="1"${idx === list.length - 1 ? ' disabled' : ''}>下移</button>
+            <span style="flex:1"></span>
+            <button type="button" class="btn sm danger${delArm === id ? ' armed' : ''}" data-del>${delArm === id ? '確定刪除？' : '刪除動作'}</button>
+          </div>
+        </div>`;
+      }
+      h += `</div>`;
+    });
+    h += `<button type="button" class="btn add" data-add="${d}">＋ 新增動作到 Day ${d}</button></section>`;
+  }
+  h += `<div class="card"><h3>還原菜單</h3><p class="small muted" style="margin:-4px 0 10px">把週期、動作與基準 PR 改回原始 Excel 課表。訓練紀錄會保留。</p>
+    <button type="button" class="btn sm danger${resetArm ? ' armed' : ''}" data-reset>${resetArm ? '再按一次確認還原' : '還原成原始課表'}</button></div>`;
+  return h;
+}
+const NUM_PF = ['sets','opt','reps','rpe','rpeStep','dlSets','dlReps','dlPct','dlRpe','rest','day'];
+function setProgField(ex, f, el){
+  if (f === 'bar') ex.bar = el.checked;
+  else if (f === 'repsMax') ex.repsMax = el.value === '' ? null : +el.value;
+  else if (NUM_PF.includes(f)) ex[f] = +el.value;
+  else ex[f] = el.value;
+  if (f === 'reps' && ex.repsMax != null && ex.repsMax <= ex.reps) ex.repsMax = null;
+  if (f === 'day'){ const i = prog.exercises.indexOf(ex); prog.exercises.splice(i, 1); prog.exercises.push(ex); }
+}
+function menuClick(e){
+  const t = e.target;
+  if (t.closest('[data-reset]')){
+    if (!resetArm){ resetArm = true; render(); return true; }
+    resetArm = false; prog = Object.assign(defaultProgram(), {updatedAt:0}); openEx.clear(); touchProg(); rebuild(); render(); return true;
+  }
+  const go = t.closest('[data-goex]');
+  if (go){ const id = go.dataset.goex; openEx.add(id); render(); document.querySelector(`.mx[data-id="${id}"]`)?.scrollIntoView({block:'start'}); window.scrollBy(0, -170); return true; }
+  const bw = t.closest('[data-basew]');
+  if (bw){ const l = bw.dataset.basew, b = prog.base[l];
+    pickerOpen({mode:'w', bar:true, target:null, start:b.w, title:`${LIFTS[l]} · 基準重量`, clearLabel:'取消', applyAll:null,
+      onCommit:v => { if (v != null){ b.w = v; touchProg(); rebuild(); } }}); return true; }
+  const add = t.closest('[data-add]');
+  if (add){
+    const ex = Object.assign({}, BLANK_EX, {id:'x' + Date.now().toString(36), day:+add.dataset.add});
+    prog.exercises.push(ex); openEx.add(ex.id); touchProg(); rebuild(); render();
+    document.querySelector(`.mx[data-id="${ex.id}"]`)?.scrollIntoView({block:'center'});
+    return true;
+  }
+  const mx = t.closest('.mx'); if (!mx) return false;
+  const ex = EXBY[mx.dataset.id]; if (!ex) return false;
+  if (t.closest('[data-toggle]')){ openEx.has(ex.id) ? openEx.delete(ex.id) : openEx.add(ex.id); delArm = null; render(); return true; }
+  const pkb = t.closest('[data-pick]');
+  if (pkb){
+    if (pkb.dataset.pick === 'start')
+      pickerOpen({mode:'w', bar:ex.bar, target:null, start:ex.start ?? 20, title:`${esc(ex.name)} · W1 起始重量<small>之後每週依增量自動加重</small>`, clearLabel:'不設重量', applyAll:null,
+        onCommit:v => { ex.start = v; touchProg(); rebuild(); }});
+    else
+      pickerOpen({mode:'p', bar:false, target:null, start:ex.inc || 0, title:`${esc(ex.name)} · 每週增加重量<small>累積期每週加上的總重量</small>`, clearLabel:'不加重', applyAll:null,
+        onCommit:v => { ex.inc = v || 0; touchProg(); rebuild(); }});
+    return true;
+  }
+  const mv = t.closest('[data-move]');
+  if (mv){
+    const arr = prog.exercises, i = arr.indexOf(ex), dir = +mv.dataset.move;
+    let j = i + dir; while (j >= 0 && j < arr.length && arr[j].day !== ex.day) j += dir;
+    if (j >= 0 && j < arr.length){ [arr[i], arr[j]] = [arr[j], arr[i]]; touchProg(); rebuild(); render(); }
+    return true;
+  }
+  if (t.closest('[data-del]')){
+    if (delArm !== ex.id){ delArm = ex.id; render(); return true; }
+    delArm = null; prog.exercises.splice(prog.exercises.indexOf(ex), 1); openEx.delete(ex.id); touchProg(); rebuild(); render(); return true;
+  }
+  return false;
+}
+function menuChange(e){
+  const t = e.target;
+  if (t.dataset.cy){ prog.cycle[t.dataset.cy] = +t.value; touchProg(); rebuild(); render(); return true; }
+  if (t.dataset.base){ prog.base[t.dataset.base][t.dataset.bk] = +t.value; touchProg(); rebuild(); return true; }
+  const f = t.dataset.pf; if (!f || t.type === 'text' || t.tagName === 'TEXTAREA') return !!f;
+  const ex = EXBY[t.closest('.mx').dataset.id];
+  setProgField(ex, f, t); touchProg(); rebuild(); render(); return true;
+}
+function menuInput(e){
+  const t = e.target;
+  if (t.dataset.dayf){ DAYS[t.dataset.day][t.dataset.dayf] = t.value; touchProg(); return true; }
+  const f = t.dataset.pf; if (!f || !(t.type === 'text' || t.tagName === 'TEXTAREA')) return !!f;
+  const mx = t.closest('.mx'), ex = EXBY[mx.dataset.id];
+  ex[f] = t.value; touchProg();
+  if (f === 'name') mx.querySelector('[data-sumname]').textContent = t.value;
+  if (f === 'wNote') mx.querySelector('[data-sum]').innerHTML = exSummary(ex);
+  return true;
+}
+
+function renderGuide(){
+  const w = ui.week, dlEx = EX.find(e => e.main === 'dead') || EX.find(e => e.cat === 'dead');
+  const dlp = dlEx ? rx(dlEx, w) : null, dl = dlp && !dlp.cancelled ? dlp.w : null;
+  const warm = [
+    ['第 1 組', r25(dl*0.4), '40%', '5 下', '60 秒', '建立動作軌跡，槓鈴貼脛骨，專注起槓腳踩地感與呼吸閥式。'],
+    ['第 2 組', r25(dl*0.6), '60%', '3 下', '60-90 秒', '喚醒拉力虛位 (Slack Out)，聽見槓片清脆聲，背闊肌夾緊。'],
+    ['第 3 組', r25(dl*0.78), '75-80%', '2 下', '90 秒', '加快離地爆發力，次數降至 2 下，嚴禁在此累積乳酸疲勞。'],
+    ['第 4 組', r25(dl*0.9), '90%', '1 下', '2 分鐘', '繫上腰帶，只拉 1 下！讓神經適應接近目標重量的重壓感。'],
+    ['第 5 組（可選）', r25(dl*0.95), '95%', '1 下', '2-3 分鐘', '銜接組（若前一組速度極快可跳過），確認起槓信心。'],
+  ];
+  const p = dlp || {};
+  const items = [
+    ['熱身異常沉重','平常輕快的熱身重量（如深蹲 80 kg、硬舉 100 kg）出架時感覺異常沉重、速度明顯變慢。','train'],
+    ['RPE 嚴重漂移','相同重量下，連續兩次訓練日 RPE 向上漂移超過 1.5-2 級（例如 100 kg 5 下從 7.5 變成 9.5）。','train'],
+    ['握力明顯衰退','硬舉熱身手指發虛滑動，或單槓懸垂時間急遽縮短。','train'],
+    ['生理與睡眠異變','晨間靜態心率連續 2-3 天偏高 5-8 bpm、身體極累大腦卻興奮早醒。','body']
+  ];
+  const ck = cns['w'+w] || {};
+  const hot = items.some((it,i) => it[2]==='train' && ck[i]) && ck[3];
+  let h = `<div class="dayhead"><span class="eyebrow">第 ${w} 週 · ${WEEKS[w-1].label}</span><h2>訓練指南</h2></div>
+  <div class="card prose"><h3>波浪推進法則</h3>
+    <p>目前菜單：${prog.cycle.accum} 週累積${prog.cycle.deload ? ` + ${prog.cycle.deload} 週減量` : ''}為一個波浪，共 ${prog.cycle.waves} 個波浪（${TOTAL_WEEKS} 週）。累積期每週依各動作設定的增量加重；新波浪從上一波第 1 週再提升 ${prog.cycle.shift} 次增量重新開始。</p>
+    <p>減量週組數減半、重量降至 65-70% 左右，消退中樞神經與關節疲勞。各動作的減量細節可在「菜單」頁調整。</p>
+    <p class="muted small" style="margin:0">頻率：練一休一（如週一、三、五、日）。第 1 週核心任務是校準動作軌跡、守住 RPE 7-8，不搶快加重。</p></div>
+  ${dl ? `<div class="card"><h3>硬舉熱身配置（本週正式組 ${fmt(dl)} kg）</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>順序</th><th>重量</th><th>強度</th><th>次數</th><th>休息</th><th>重點</th></tr></thead><tbody>
+    ${warm.map(r => `<tr><td>${r[0]}</td><td class="n">${fmt(r[1])}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`).join('')}
+    <tr class="work"><td><b>正式組</b></td><td class="n">${fmt(dl)}</td><td>100%</td><td>${p.setsText}×${p.repsText}</td><td>3-4 分鐘</td><td>目標 RPE ${p.rpe}，每組保留餘力。</td></tr>
+    </tbody></table></div>
+    <p class="small muted" style="margin:8px 0 0">依當週硬舉目標重量換算，四捨五入到 2.5 kg。</p></div>` : ''}
+  <div class="card"><h3>CNS 疲勞檢核（第 ${w} 週）</h3>
+    ${items.map((it,i) => `<label class="check"><input type="checkbox" data-cns="${i}" ${ck[i]?'checked':''}><span><b>${it[0]}</b><span class="muted small">${it[1]}</span></span></label>`).join('')}
+    <div class="redline${hot?' hot':''}"><b>紅線法則：</b>若同時出現「訓練指標漂移」與「生理睡眠指標惡化」，當週立刻轉為減量週，絕不硬拼！${hot ? '<br><b>目前已觸發，建議本週改做減量。</b>' : ''}</div></div>
+  ${renderVolume(w, false)}`;
+  return h;
+}
+
+function render(){
+  renderHeader();
+  const v = document.getElementById('view');
+  v.innerHTML = ui.tab === 'log' ? renderLog() : ui.tab === 'prog' ? renderProg() : ui.tab === 'menu' ? renderMenu() : renderGuide();
+  if (ui.tab === 'prog') bindTrend();
+  document.querySelectorAll('.tab').forEach(t => { if (t.dataset.tab === ui.tab) t.setAttribute('aria-current','page'); else t.removeAttribute('aria-current'); });
+}
+function saveUI(){ lsSet(LS_UI, ui); }
+
+/* ---------- events ---------- */
+document.getElementById('weeks').addEventListener('click', e => {
+  const b = e.target.closest('[data-week]'); if (!b) return;
+  ui.week = +b.dataset.week; saveUI(); render(); window.scrollTo({top:0});
+});
+document.getElementById('days').addEventListener('click', e => {
+  const b = e.target.closest('[data-day]'); if (!b) return;
+  ui.day = +b.dataset.day; saveUI(); render(); window.scrollTo({top:0});
+});
+document.querySelector('.tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  ui.tab = b.dataset.tab; saveUI(); render(); window.scrollTo({top:0});
+});
+
+const view = document.getElementById('view');
+view.addEventListener('click', e => {
+  const vm = e.target.closest('[data-volmode]');
+  if (vm){ ui.volMode = vm.dataset.volmode; saveUI(); render(); return; }
+  const vp = e.target.closest('[data-volpart]');
+  if (vp){ const c = vp.dataset.ctx, k = vp.dataset.volpart; volPart[c] = volPart[c] === k ? null : k; render(); return; }
+  if (ui.tab === 'menu' && menuClick(e)) return;
+  if (e.target.closest('[data-sync]')){ syncSheet(false); return; }
+  if (e.target.closest('[data-restore]')){ if (!restoreArm){ restoreArm = true; render(); return; } restoreArm = false; restoreFromSheet(); return; }
+  const go = e.target.closest('[data-go]');
+  if (go){ const [w, d] = go.dataset.go.split('-').map(Number); Object.assign(ui, {week:w, day:d, tab:'log'}); saveUI(); render(); window.scrollTo({top:0}); return; }
+  const wp = e.target.closest('[data-wpick]');
+  if (wp){ openPicker(wp.closest('.ex').dataset.ex, +wp.closest('.srow').dataset.i, 'w'); return; }
+  const rp = e.target.closest('[data-rpick]');
+  if (rp){ openPicker(rp.closest('.ex').dataset.ex, +rp.closest('.srow').dataset.i, 'r'); return; }
+  const chk = e.target.closest('[data-chk]');
+  if (chk){
+    const row = chk.closest('.srow'), exEl = chk.closest('.ex'), ex = EXBY[exEl.dataset.ex], i = +row.dataset.i;
+    const s = ensureSession(ui.week, ui.day), r = setRow(s, ex.id, i);
+    r.ok = !r.ok;
+    if (r.ok){
+      const p = rx(ex, ui.week);
+      if (!r.w && p.w != null) r.w = fmt(p.w);
+      if (!r.r && p.reps != null) r.r = String(p.reps);
+      if (!s.date) s.date = todayISO();
+      const last = i === p.rows - 1;
+      startTimer(ex.rest, last ? `${ex.name} 完成 · 換下一個動作` : `${ex.name} 第 ${i+2} 組 · 休息 ${Math.round(ex.rest/60*2)/2} 分鐘`);
+    }
+    touch(key(ui.week, ui.day)); render(); return;
+  }
+  if (e.target.id === 'finish'){
+    const s = ensureSession(ui.week, ui.day);
+    s.done = !s.done; if (s.done && !s.date) s.date = todayISO();
+    if (s.done){ clearInterval(tTick); tEl.hidden = true; }
+    touch(key(ui.week, ui.day)); render();
+    if (s.done) syncSheet(true);
+  }
+});
+view.addEventListener('input', e => {
+  if (ui.tab === 'menu'){ menuInput(e); return; }
+  const f = e.target.dataset.f;
+  if (f){
+    const row = e.target.closest('.srow'), exEl = e.target.closest('.ex'), i = +row.dataset.i;
+    const s = ensureSession(ui.week, ui.day), r = setRow(s, exEl.dataset.ex, i);
+    r[f] = e.target.value.trim();
+    if (f === 'rpe') e.target.classList.toggle('empty', !r.rpe);
+    if (f === 'w'){
+      const pl = exEl.querySelector('[data-plates]');
+      if (pl) pl.innerHTML = plates(firstNum(r.w) ?? rx(EXBY[exEl.dataset.ex], ui.week).w);
+    }
+    touch(key(ui.week, ui.day));
+  } else if (e.target.id === 'noteIn' || e.target.id === 'dateIn'){
+    const s = ensureSession(ui.week, ui.day);
+    if (e.target.id === 'noteIn') s.note = e.target.value; else s.date = e.target.value || null;
+    touch(key(ui.week, ui.day));
+  }
+});
+view.addEventListener('focusin', e => {
+  const f = e.target.dataset.f; if (f !== 'w') return;
+  const pl = e.target.closest('.ex').querySelector('[data-plates]');
+  if (pl) pl.innerHTML = plates(firstNum(e.target.value) ?? firstNum(e.target.placeholder));
+});
+view.addEventListener('change', e => {
+  if (ui.tab === 'menu'){ menuChange(e); return; }
+  if (e.target.dataset.hook != null){
+    const v = e.target.value.trim();
+    lsSet(SHEET_URL_KEY, /^https:\/\/script\.google\.com\/.+\/exec/.test(v) ? v : '');
+    sheetStatus = {state:'idle', msg:/^https?:/.test(v) && !getHook() ? '' : '', at:sheetStatus.at};
+    if (v && !getHook()) sheetStatus = {state:'err', msg:'網址格式不對，應該是 https://script.google.com/macros/s/…/exec', at:sheetStatus.at};
+    render(); if (getHook()) syncSheet(false); return;
+  }
+  if (e.target.id === 'chartEx'){ ui.chartEx = e.target.value; saveUI(); render(); return; }
+  if (e.target.dataset.cns != null){
+    const k = 'w' + ui.week; cns[k] = cns[k] || {}; cns[k][e.target.dataset.cns] = e.target.checked;
+    lsSet(LS_CNS, cns); render();
+  }
+});
+
+render();
+updateBadge();
+window.addEventListener('online', () => { updateBadge(); if (lsGet(PENDING_KEY, 0)) syncSheet(true); });
+window.addEventListener('offline', updateBadge);
+if (navigator.onLine && lsGet(PENDING_KEY, 0)) setTimeout(() => syncSheet(true), 1500);
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+})();
+</script>
+
+</body>
+</html>
