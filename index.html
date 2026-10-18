@@ -491,7 +491,7 @@ function rebuild(){
   WEEKS = Array.from({length:TOTAL_WEEKS}, (_, k) => {
     const wave = Math.floor(k / len), pos = k % len, deload = pos >= C.accum;
     const wv = C.waves > 1 ? `波${wave+1} ` : '';
-    return {n:k+1, wave, pos, deload, label: deload ? `${wv}減量` : `${wv}累積${pos+1}`};
+    return {n:k+1, wave, pos, deload, label: deload ? `${wv}減量` : `${wv}累積${pos+1}`, short: deload ? '減量' : `累積${pos+1}`};
   });
   DAYS = prog.days;
   EX = prog.exercises;
@@ -653,7 +653,7 @@ function renderHeader(){
   document.getElementById('nWeeks').textContent = TOTAL_WEEKS;
   document.getElementById('weeks').innerHTML = WEEKS.map(w => {
     const pips = [1,2,3,4].map(d => `<span class="${dayCounts(w.n,d).finished ? 'on' : ''}"></span>`).join('');
-    return `<button type="button" class="wk${w.deload?' deload':''}" data-week="${w.n}" aria-pressed="${ui.week===w.n}"><span class="n">W${w.n}</span><span class="l">${w.label}</span><span class="pips">${pips}</span></button>`;
+    return `<button type="button" class="wk${w.deload?' deload':''}" data-week="${w.n}" aria-pressed="${ui.week===w.n}"><span class="n">W${w.n}</span><span class="l">${w.short}</span><span class="pips">${pips}</span></button>`;
   }).join('');
   document.getElementById('days').innerHTML = [1,2,3,4].map(d => {
     const c = dayCounts(ui.week, d);
