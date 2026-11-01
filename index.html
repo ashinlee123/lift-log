@@ -372,6 +372,26 @@ button.ovc[aria-expanded="true"]{background:var(--surface-2);border-top-color:va
 .vc.part b.num{color:var(--warn)}
 .vc.full{background:var(--good);border-color:var(--good)}
 .vc.full b.num,.vc.full small{color:var(--surface)}
+.pl{display:grid;gap:10px}
+.pl-sum{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.pl-total b{font-size:40px;line-height:1}
+.pl-total{font-weight:600;color:var(--muted)}
+.pl-total b{color:var(--ink)}
+.pl-viz{height:72px;display:flex;align-items:center;gap:2px;padding:0 4px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.pl-sleeve{width:44px;height:8px;border-radius:2px;background:var(--muted);flex:none}
+.pl-end{flex:1;min-width:12px;height:8px;border-radius:0 3px 3px 0;background:var(--muted);opacity:.6}
+.pl-disc{width:11px;height:var(--h);border-radius:3px;flex:none}
+.pl-rows{display:grid;max-height:min(40vh,320px);overflow-y:auto}
+.pl-row{display:grid;grid-template-columns:44px minmax(0,1fr) 40px 32px 40px;align-items:center;gap:6px;padding:5px 0;border-top:1px solid var(--line)}
+.pl-row:first-child{border-top:0}
+.pl-row .plate{height:24px;font-size:14px}
+.pl-kg{font-size:14px}
+.pl-n{text-align:center;font-size:20px}
+.pl-btn{height:36px;border-radius:9px;border:1px solid var(--line);background:var(--surface);font-size:20px;font-weight:700;line-height:1}
+.pl-btn.add{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.pl-btn[disabled]{opacity:.35}
+.pl-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.wsub{font-size:11px;font-family:var(--body);margin-left:6px;font-weight:500}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -407,6 +427,12 @@ button.ovc[aria-expanded="true"]{background:var(--surface-2);border-top-color:va
       <span class="t" id="pkTitle">選擇重量</span>
       <button type="button" class="btn sm" id="pkClear">用目標值</button>
       <button type="button" class="btn sm" id="pkDone" style="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">完成</button>
+    </div>
+    <div class="pl" id="plateUI" hidden>
+      <div class="pl-sum"><span class="pl-total"><b class="num" id="plTotal">20</b> kg</span><span class="small muted" id="plSide">槓 20 kg ＋ 單邊 0 kg × 2</span></div>
+      <div class="pl-viz" id="plViz" aria-hidden="true"></div>
+      <div class="pl-rows" id="plRows"></div>
+      <div class="pl-foot"><span class="small muted">每片都是「單邊」，兩邊各掛一片。</span><button type="button" class="btn sm" id="plClear">只用空槓</button></div>
     </div>
     <div class="wheel"><div class="wheel-hl"></div><div class="wheel-list" id="pkList" tabindex="0" aria-label="重量滾輪，每格 2.5 kg"></div></div>
     <div class="plates pk-plates" id="pkPlates"></div>
@@ -932,7 +958,7 @@ function openPicker(exId, i, mode){
   for (let j = i - 1; start == null && j >= 0; j--) start = firstNum(arr[j]?.[mode]);
   const tgtText = mode === 'w' ? (p.w != null ? fmt(p.w) + ' kg' : esc(p.wText)) : `${esc(p.repsText)} 下`;
   const later = arr.slice(i + 1, p.rows).some(r => r && r[mode]);
-  pickerOpen({mode, bar:ex.bar, target, start:start ?? target ?? (mode === 'w' ? 20 : 8),
+  pickerOpen({mode:mode === 'w' && ex.bar ? 'plate' : mode, bar:ex.bar, target, start:start ?? target ?? (mode === 'w' ? 20 : 8),
     title:`${esc(ex.name)} · ${MODES[mode].label}<small>第 ${i+1} 組 · 課表 ${tgtText}</small>`,
     clearLabel:mode === 'w' ? '用目標值' : '用課表次數',
     applyAll:i < p.rows - 1 ? !later : null,
@@ -944,6 +970,20 @@ function openPicker(exId, i, mode){
     }});
 }
 function pickerOpen(o){
+  const plate = o.mode === 'plate';
+  document.getElementById('plateUI').hidden = !plate;
+  pk.el.querySelector('.wheel').hidden = plate;
+  document.getElementById('pkPlates').hidden = plate;
+  if (plate){
+    pk.mode = 'plate'; pk.onCommit = o.onCommit;
+    document.getElementById('pkTitle').innerHTML = o.title;
+    document.getElementById('pkClear').textContent = o.clearLabel;
+    document.getElementById('pkAll').checked = !!o.applyAll;
+    document.getElementById('pkAll').parentElement.hidden = o.applyAll == null;
+    plCounts = platesFor(o.start); plRender();
+    pk.el.hidden = false;
+    return;
+  }
   pkBuild(o.mode);
   pk.bar = !!o.bar; pk.onCommit = o.onCommit;
   document.getElementById('pkTitle').innerHTML = o.title;
@@ -957,12 +997,40 @@ function pickerOpen(o){
   pk.list.scrollTop = k * IH; pkSelect(k);
   pk.list.focus({preventScroll:true});
 }
+/* barbell: the lifter picks plates per side, total = 20 kg bar + 2 × side */
+const BAR_KG = 20, PLATES = [25, 20, 15, 10, 5, 2.5, 1.25];
+const plateCls = p => p >= 25 ? 'p25' : p >= 20 ? 'p20' : p >= 15 ? 'p15' : p >= 10 ? 'p10' : p >= 5 ? 'p5' : p >= 2.5 ? 'p2' : 'p1';
+let plCounts = {};
+function platesFor(total){
+  const c = Object.fromEntries(PLATES.map(p => [p, 0]));
+  let side = Math.max(0, ((total ?? BAR_KG) - BAR_KG) / 2);
+  for (const p of PLATES) while (side >= p - 1e-9){ c[p]++; side -= p; }
+  return c;
+}
+const plSide = () => PLATES.reduce((a, p) => a + p * plCounts[p], 0);
+const plTotal = () => BAR_KG + plSide() * 2;
+function plRender(){
+  document.getElementById('plTotal').textContent = fmt(plTotal());
+  document.getElementById('plSide').textContent = `槓 ${BAR_KG} kg ＋ 單邊 ${fmt(plSide())} kg × 2`;
+  const viz = PLATES.flatMap(p => Array(plCounts[p]).fill(p));
+  document.getElementById('plViz').innerHTML = `<span class="pl-sleeve"></span>${viz.map(p => `<span class="pl-disc ${plateCls(p)}" style="--h:${p >= 20 ? 64 : p >= 15 ? 56 : p >= 10 ? 48 : p >= 5 ? 38 : p >= 2.5 ? 30 : 24}px"></span>`).join('')}<span class="pl-end"></span>`;
+  document.getElementById('plRows').innerHTML = PLATES.map(p => `<div class="pl-row">
+      <span class="plate ${plateCls(p)}">${fmt(p)}</span><span class="pl-kg">${fmt(p)} kg 槓片</span>
+      <button type="button" class="pl-btn" data-pl="${p}" data-d="-1" aria-label="少一片 ${fmt(p)} kg"${plCounts[p] ? '' : ' disabled'}>−</button>
+      <b class="num pl-n">${plCounts[p]}</b>
+      <button type="button" class="pl-btn add" data-pl="${p}" data-d="1" aria-label="多一片 ${fmt(p)} kg">＋</button></div>`).join('');
+}
+document.getElementById('plRows').addEventListener('click', e => {
+  const b = e.target.closest('[data-pl]'); if (!b) return;
+  const p = +b.dataset.pl; plCounts[p] = Math.max(0, Math.min(12, plCounts[p] + +b.dataset.d)); plRender();
+});
+document.getElementById('plClear').onclick = () => { plCounts = platesFor(BAR_KG); plRender(); };
 function closePicker(){ pk.el.hidden = true; }
 function pkCommit(v){
   const all = !document.getElementById('pkAll').parentElement.hidden && document.getElementById('pkAll').checked;
   pk.onCommit(v, all); closePicker(); pendingRender = false; render();
 }
-document.getElementById('pkDone').onclick = () => pkCommit(pk.vals[pk.idx]);
+document.getElementById('pkDone').onclick = () => pkCommit(pk.mode === 'plate' ? plTotal() : pk.vals[pk.idx]);
 document.getElementById('pkClear').onclick = () => pkCommit(null);
 pk.el.querySelector('[data-pk-close]').onclick = closePicker;
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pk.el.hidden) closePicker(); });
@@ -1260,11 +1328,11 @@ function renderMenu(){
             <div class="f"><span>標籤</span><div class="auto">${TAGS[tagOf(ex.reps)]}<small>依次數自動（1-4 下大重量，5 下以上肌肉量）</small></div></div>
             <label class="f"><span>排在</span>${sel('data-pf="day"', [1,2,3,4], ex.day, v => `Day ${v}`, 'dy-'+id)}</label>
             <label class="f"><span>計入 1RM 估算</span>${sel('data-pf="main"', ['', 'squat', 'bench', 'dead'], ex.main, v => v ? LIFTS[v] : '不計入', 'mn-'+id)}</label>
-            <label class="f ck"><input type="checkbox" data-pf="bar" id="br-${id}"${ex.bar ? ' checked' : ''}><span>槓鈴動作（顯示槓片）</span></label>
           </div>
           <div class="subh">累積期</div>
           <div class="fgrid">
-            <label class="f"><span>W1 起始重量</span><span class="fld"><button type="button" class="wbtn" data-pick="start">${ex.start != null ? fmt(ex.start) + ' kg' : '<span class="ph">不設重量</span>'}</button></span></label>
+            <label class="f full"><span>器材</span>${sel('data-pf="equip"', ['bar', 'machine'], ex.bar ? 'bar' : 'machine', v => v === 'bar' ? '槓鈴（20 kg 槓＋單邊槓片）' : '器械 / 啞鈴（直接選總重量）', 'eq-'+id)}</label>
+            <label class="f"><span>W1 起始重量</span><span class="fld"><button type="button" class="wbtn" data-pick="start">${ex.start != null ? `${fmt(ex.start)} kg${ex.bar && ex.start >= BAR_KG ? `<small class="muted wsub">單邊 ${fmt((ex.start - BAR_KG) / 2)}</small>` : ''}` : '<span class="ph">不設重量</span>'}</button></span></label>
             <label class="f"><span>每週增加</span><span class="fld"><button type="button" class="wbtn" data-pick="inc">${ex.inc ? '+' + fmt(ex.inc) + ' kg' : '<span class="ph">不加重</span>'}</button></span></label>
             <label class="f"><span>組數</span>${sel('data-pf="sets"', range(1,10), ex.sets, v => `${v} 組`, 'st-'+id)}</label>
             <label class="f"><span>選做組</span>${sel('data-pf="opt"', range(0,3), ex.opt, v => v ? `+${v} 組` : '無', 'op-'+id)}</label>
@@ -1302,7 +1370,7 @@ function renderMenu(){
 }
 const NUM_PF = ['sets','opt','reps','rpe','rpeStep','dlSets','dlReps','dlPct','dlRpe','rest','day'];
 function setProgField(ex, f, el){
-  if (f === 'bar') ex.bar = el.checked;
+  if (f === 'equip') ex.bar = el.value === 'bar';
   else if (f === 'repsMax') ex.repsMax = el.value === '' ? null : +el.value;
   else if (NUM_PF.includes(f)) ex[f] = +el.value;
   else ex[f] = el.value;
@@ -1334,7 +1402,7 @@ function menuClick(e){
   const pkb = t.closest('[data-pick]');
   if (pkb){
     if (pkb.dataset.pick === 'start')
-      pickerOpen({mode:'w', bar:ex.bar, target:null, start:ex.start ?? 20, title:`${esc(ex.name)} · W1 起始重量<small>之後每週依增量自動加重</small>`, clearLabel:'不設重量', applyAll:null,
+      pickerOpen({mode:ex.bar ? 'plate' : 'w', bar:ex.bar, target:null, start:ex.start ?? 20, title:`${esc(ex.name)} · W1 起始重量<small>${ex.bar ? '選單邊要掛的槓片，總重量自動計算' : '之後每週依增量自動加重'}</small>`, clearLabel:'不設重量', applyAll:null,
         onCommit:v => { ex.start = v; touchProg(); rebuild(); }});
     else
       pickerOpen({mode:'p', bar:false, target:null, start:ex.inc || 0, title:`${esc(ex.name)} · 每週增加重量<small>累積期每週加上的總重量</small>`, clearLabel:'不加重', applyAll:null,
