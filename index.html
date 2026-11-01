@@ -398,6 +398,7 @@ button.ovc[aria-expanded="true"]{background:var(--surface-2);border-top-color:va
 .pl-btn[disabled]{opacity:.35}
 .pl-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .wsub{font-size:11px;font-family:var(--body);margin-left:6px;font-weight:500}
+.updbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(66px + env(safe-area-inset-bottom,0px));z-index:8;border:0;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:14px;padding:10px 18px;box-shadow:0 6px 20px #0004;white-space:nowrap}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -446,6 +447,8 @@ button.ovc[aria-expanded="true"]{background:var(--surface-2);border-top-color:va
     <div class="pk-opts"><label><input type="checkbox" id="pkAll">套用到後面未完成的組</label></div>
   </div>
 </div>
+
+<button type="button" class="updbar" id="updBar" hidden>有新版本，點這裡更新</button>
 
 <nav class="tabs" aria-label="主選單">
   <div class="wrap">
@@ -1520,7 +1523,8 @@ function renderGuide(){
   <div class="card"><h3>CNS 疲勞檢核（第 ${w} 週）</h3>
     ${items.map((it,i) => `<label class="check"><input type="checkbox" data-cns="${i}" ${ck[i]?'checked':''}><span><b>${it[0]}</b><span class="muted small">${it[1]}</span></span></label>`).join('')}
     <div class="redline${hot?' hot':''}"><b>紅線法則：</b>若同時出現「訓練指標漂移」與「生理睡眠指標惡化」，當週立刻轉為減量週，絕不硬拼！${hot ? '<br><b>目前已觸發，建議本週改做減量。</b>' : ''}</div></div>
-  ${renderVolume(w, false)}`;
+  ${renderVolume(w, false)}
+  <p class="small muted" style="text-align:center;margin:4px 0 0">版本 ${BUILD}</p>`;
   return h;
 }
 
@@ -1637,7 +1641,30 @@ try { navigator.storage && navigator.storage.persist && navigator.storage.persis
 document.addEventListener('touchmove', e => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, {passive:false});
 let lastTouchEnd = 0;
 document.addEventListener('touchend', e => { const now = Date.now(); if (now - lastTouchEnd < 300 && !e.target.closest('input,textarea,select')) e.preventDefault(); lastTouchEnd = now; }, {passive:false});
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).catch(() => {}));
+// new-version check: the phone may resume the old page from memory, so ask the server each time the app comes back
+const BUILD = 'v8';
+const updBar = document.getElementById('updBar');
+async function checkUpdate(){
+  if (!navigator.onLine) return;
+  try {
+    const r = await fetch('version.json?t=' + Date.now(), {cache:'no-store'});
+    const j = await r.json();
+    if (j.build && j.build !== BUILD){
+      updBar.hidden = false;
+      navigator.serviceWorker?.getRegistration().then(reg => reg && reg.update()).catch(() => {});
+    }
+  } catch {}
+}
+updBar.onclick = async () => {
+  updBar.textContent = '更新中…';
+  try { const reg = await navigator.serviceWorker?.getRegistration(); if (reg) await reg.update(); } catch {}
+  try { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); } catch {}
+  location.reload();
+};
+setTimeout(checkUpdate, 1500);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
+window.addEventListener('online', checkUpdate);
 })();
 </script>
 

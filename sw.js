@@ -1,5 +1,5 @@
 // Offline cache for 健力日誌. Bump VERSION when the app files change.
-const VERSION = 'lift-log-v7';
+const VERSION = 'lift-log-v8';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -10,10 +10,10 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const req = e.request, url = new URL(req.url);
-  if (req.method !== 'GET' || url.hostname.endsWith('script.google.com') || url.hostname.endsWith('googleusercontent.com')) return;
+  if (req.method !== 'GET' || url.hostname.endsWith('script.google.com') || url.hostname.endsWith('googleusercontent.com') || url.pathname.endsWith('version.json')) return;
   // the app page: try the network first so updates arrive, fall back to the cached copy offline
   if (req.mode === 'navigate'){
-    e.respondWith(fetch(req).then(r => { const copy = r.clone(); caches.open(VERSION).then(c => c.put('index.html', copy)); return r; })
+    e.respondWith(fetch(req, {cache:'no-store'}).then(r => { const copy = r.clone(); caches.open(VERSION).then(c => c.put('index.html', copy)); return r; })
       .catch(() => caches.match('index.html')));
     return;
   }
