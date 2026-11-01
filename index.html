@@ -210,8 +210,10 @@ tr.work td{background:var(--accent-soft)}
 .wbtn::after{content:"";position:absolute;right:9px;top:50%;width:6px;height:6px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:translateY(-70%) rotate(45deg)}
 .sheet{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end}
 [hidden]{display:none!important}
-.sheet-bg{position:absolute;inset:0;background:#0007}
-.sheet-card{position:relative;background:var(--surface);border-radius:18px 18px 0 0;width:100%;max-width:560px;margin:0 auto;padding:14px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:grid;gap:12px;box-shadow:0 -8px 30px #0003}
+.sheet-bg{position:absolute;inset:0;background:#0007;opacity:0;transition:opacity .28s ease}
+.sheet.open .sheet-bg{opacity:1}
+.sheet-card{position:relative;background:var(--surface);border-radius:18px 18px 0 0;width:100%;max-width:560px;margin:0 auto;padding:14px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:grid;gap:12px;box-shadow:0 -8px 30px #0003;transform:translateY(100%);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.sheet.open .sheet-card{transform:none}
 .sheet-head{display:flex;align-items:center;gap:10px}
 .sheet-head .t{flex:1;min-width:0;font-weight:700}
 .sheet-head .t small{display:block;font-weight:500;color:var(--muted);font-size:12px}
@@ -981,7 +983,7 @@ function pickerOpen(o){
     document.getElementById('pkAll').checked = !!o.applyAll;
     document.getElementById('pkAll').parentElement.hidden = o.applyAll == null;
     plCounts = platesFor(o.start); plRender();
-    pk.el.hidden = false;
+    showSheet();
     return;
   }
   pkBuild(o.mode);
@@ -992,7 +994,7 @@ function pickerOpen(o){
   document.getElementById('pkClear').textContent = o.clearLabel;
   document.getElementById('pkAll').checked = !!o.applyAll;
   document.getElementById('pkAll').parentElement.hidden = o.applyAll == null;
-  pk.el.hidden = false;
+  showSheet();
   const k = pkIndex(o.start);
   pk.list.scrollTop = k * IH; pkSelect(k);
   pk.list.focus({preventScroll:true});
@@ -1025,7 +1027,18 @@ document.getElementById('plRows').addEventListener('click', e => {
   const p = +b.dataset.pl; plCounts[p] = Math.max(0, Math.min(12, plCounts[p] + +b.dataset.d)); plRender();
 });
 document.getElementById('plClear').onclick = () => { plCounts = platesFor(BAR_KG); plRender(); };
-function closePicker(){ pk.el.hidden = true; }
+// slide the sheet up from the bottom; slide it back down on close
+function showSheet(){
+  clearTimeout(pk.hideT);
+  pk.el.hidden = false;
+  void pk.el.offsetHeight;
+  pk.el.classList.add('open');
+}
+function closePicker(){
+  pk.el.classList.remove('open');
+  clearTimeout(pk.hideT);
+  pk.hideT = setTimeout(() => { if (!pk.el.classList.contains('open')) pk.el.hidden = true; }, 300);
+}
 function pkCommit(v){
   const all = !document.getElementById('pkAll').parentElement.hidden && document.getElementById('pkAll').checked;
   pk.onCommit(v, all); closePicker(); pendingRender = false; render();
