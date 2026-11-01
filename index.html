@@ -127,6 +127,7 @@ details.cue p{margin:4px 0 6px;font-size:14px;max-width:62ch}
 .srow.done{background:var(--good-soft)}
 .srow.done .chk{background:var(--good);border-color:var(--good);color:var(--surface)}
 .srow.done .n{color:var(--good)}
+.srow.done .wbtn .ph,.srow.done .fld select.empty{color:var(--ink);opacity:1}
 .cancelled{padding:12px 14px;font-size:14px;color:var(--muted);border-top:1px solid var(--line);background:var(--surface-2)}
 
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
@@ -666,7 +667,16 @@ document.getElementById('tStop').onclick = () => { clearInterval(tTick); tEl.hid
 /* ---------- rendering ---------- */
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
-const RPES = ['6','6.5','7','7.5','8','8.5','9','9.5','10'];
+const RPES = ['5','5.5','6','6.5','7','7.5','8','8.5','9','9.5','10'];
+// a completed set keeps the prescribed values it was done with; remember which ones were filled in for the lifter
+function fillDefaults(r, p){
+  const auto = [];
+  if (!r.w && p.w != null){ r.w = fmt(p.w); auto.push('w'); }
+  if (!r.r && p.reps != null){ r.r = String(p.reps); auto.push('r'); }
+  const rpe = firstNum(p.rpe);
+  if (!r.rpe && rpe != null){ r.rpe = fmt(Math.min(10, Math.round(rpe * 2) / 2)); auto.push('rpe'); }
+  if (auto.length) r.auto = [...new Set([...(r.auto || []), ...auto])];
+}
 
 function plates(total){
   if (!total || total < 20) return '';
@@ -966,7 +976,7 @@ function openPicker(exId, i, mode){
     applyAll:i < p.rows - 1 ? !later : null,
     onCommit:(v, all) => {
       const s = ensureSession(ui.week, ui.day), val = v == null ? '' : fmt(v);
-      setRow(s, exId, i)[mode] = val;
+      const rr = setRow(s, exId, i); rr[mode] = val; if (rr.auto) rr.auto = rr.auto.filter(f => f !== mode);
       if (all) for (let j = i + 1; j < p.rows; j++){ const r = setRow(s, exId, j); if (!r.ok) r[mode] = val; }
       touch(key(ui.week, ui.day));
     }});
@@ -1534,10 +1544,10 @@ view.addEventListener('click', e => {
     const row = chk.closest('.srow'), exEl = chk.closest('.ex'), ex = EXBY[exEl.dataset.ex], i = +row.dataset.i;
     const s = ensureSession(ui.week, ui.day), r = setRow(s, ex.id, i);
     r.ok = !r.ok;
+    if (!r.ok && r.auto){ for (const f of r.auto) r[f] = ''; delete r.auto; }   // undo: back to the grey defaults
     if (r.ok){
       const p = rx(ex, ui.week);
-      if (!r.w && p.w != null) r.w = fmt(p.w);
-      if (!r.r && p.reps != null) r.r = String(p.reps);
+      fillDefaults(r, p);
       if (!s.date) s.date = todayISO();
       const last = i === p.rows - 1;
       startTimer(ex.rest, last ? `${ex.name} 完成 · 換下一個動作` : `${ex.name} 第 ${i+2} 組 · 休息 ${Math.round(ex.rest/60*2)/2} 分鐘`);
@@ -1547,6 +1557,7 @@ view.addEventListener('click', e => {
   if (e.target.id === 'finish'){
     const s = ensureSession(ui.week, ui.day);
     s.done = !s.done; if (s.done && !s.date) s.date = todayISO();
+    if (s.done) for (const ex of exercisesFor(ui.day)){ const p = rx(ex, ui.week); if (!p.cancelled) (s.sets[ex.id] || []).forEach(r => { if (r.ok) fillDefaults(r, p); }); }
     if (s.done){ clearInterval(tTick); tEl.hidden = true; }
     touch(key(ui.week, ui.day)); render();
     if (s.done) syncSheet(true);
@@ -1558,7 +1569,7 @@ view.addEventListener('input', e => {
   if (f){
     const row = e.target.closest('.srow'), exEl = e.target.closest('.ex'), i = +row.dataset.i;
     const s = ensureSession(ui.week, ui.day), r = setRow(s, exEl.dataset.ex, i);
-    r[f] = e.target.value.trim();
+    r[f] = e.target.value.trim(); if (r.auto) r.auto = r.auto.filter(x => x !== f);
     if (f === 'rpe') e.target.classList.toggle('empty', !r.rpe);
     if (f === 'w'){
       const pl = exEl.querySelector('[data-plates]');
