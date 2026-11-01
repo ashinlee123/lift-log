@@ -376,6 +376,9 @@ button.ovc[aria-expanded="true"]{background:var(--surface-2);border-top-color:va
 .vc.full{background:var(--good);border-color:var(--good)}
 .vc.full b.num,.vc.full small{color:var(--surface)}
 .pl{display:grid;gap:10px}
+.pl-head{display:flex;justify-content:flex-start}
+#plSide{text-align:right}
+#plSide b{color:var(--ink)}
 .pl-sum{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .pl-total b{font-size:40px;line-height:1}
 .pl-total{font-weight:600;color:var(--muted)}
@@ -432,7 +435,8 @@ button.ovc[aria-expanded="true"]{background:var(--surface-2);border-top-color:va
       <button type="button" class="btn sm" id="pkDone" style="background:var(--accent);border-color:var(--accent);color:var(--accent-ink)">完成</button>
     </div>
     <div class="pl" id="plateUI" hidden>
-      <div class="pl-sum"><span class="pl-total"><b class="num" id="plTotal">20</b> kg</span><span class="small muted" id="plSide">槓 20 kg ＋ 單邊 0 kg × 2</span></div>
+      <div class="pl-head"><div class="seg" id="plUnits" role="group" aria-label="槓片單位"><button type="button" data-plunit="kg" aria-pressed="true">公斤 kg</button><button type="button" data-plunit="lb" aria-pressed="false">磅 lb</button></div></div>
+      <div class="pl-sum"><span class="pl-total"><b class="num" id="plTotal">20</b> <span id="plUnitLbl">kg</span></span><span class="small muted" id="plSide">槓 20 kg ＋ 單邊 0 kg × 2</span></div>
       <div class="pl-viz" id="plViz" aria-hidden="true"></div>
       <div class="pl-rows" id="plRows"></div>
       <div class="pl-foot"><span class="small muted">每片都是「單邊」，兩邊各掛一片。</span><button type="button" class="btn sm" id="plClear">只用空槓</button></div>
@@ -1009,34 +1013,53 @@ function pickerOpen(o){
   pk.list.scrollTop = k * IH; pkSelect(k);
   pk.list.focus({preventScroll:true});
 }
-/* barbell: the lifter picks plates per side, total = 20 kg bar + 2 × side */
-const BAR_KG = 20, PLATES = [25, 20, 15, 10, 5, 2.5, 1.25];
-const plateCls = p => p >= 25 ? 'p25' : p >= 20 ? 'p20' : p >= 15 ? 'p15' : p >= 10 ? 'p10' : p >= 5 ? 'p5' : p >= 2.5 ? 'p2' : 'p1';
-let plCounts = {};
-function platesFor(total){
-  const c = Object.fromEntries(PLATES.map(p => [p, 0]));
-  let side = Math.max(0, ((total ?? BAR_KG) - BAR_KG) / 2);
-  for (const p of PLATES) while (side >= p - 1e-9){ c[p]++; side -= p; }
+/* barbell: the lifter picks plates per side; kg plates on a 20 kg bar, or lb plates on a 45 lb bar.
+   The log always stores kilograms. */
+const KG_PER_LB = 0.45359237;
+const PLATE_SETS = {
+  kg:{bar:20, plates:[25, 20, 15, 10, 5, 2.5, 1.25], cls:{25:'p25', 20:'p20', 15:'p15', 10:'p10', 5:'p5', 2.5:'p2', 1.25:'p1'}},
+  lb:{bar:45, plates:[45, 35, 25, 10, 5, 2.5], cls:{45:'p20', 35:'p15', 25:'p10', 10:'p5', 5:'p2', 2.5:'p1'}}
+};
+const BAR_KG = 20;
+let plUnit = lsGet('pl8.plateUnit', 'kg') === 'lb' ? 'lb' : 'kg', plCounts = {};
+const PS = () => PLATE_SETS[plUnit];
+const toUnit = kg => plUnit === 'lb' ? kg / KG_PER_LB : kg;
+const toKg = v => plUnit === 'lb' ? Math.round(v * KG_PER_LB * 10) / 10 : v;
+function platesFor(totalKg){
+  const set = PS(), c = Object.fromEntries(set.plates.map(p => [p, 0]));
+  let side = Math.max(0, (toUnit(totalKg ?? BAR_KG) - set.bar) / 2 + 1e-6);
+  for (const p of set.plates) while (side >= p){ c[p]++; side -= p; }
   return c;
 }
-const plSide = () => PLATES.reduce((a, p) => a + p * plCounts[p], 0);
-const plTotal = () => BAR_KG + plSide() * 2;
+const plSide = () => PS().plates.reduce((a, p) => a + p * plCounts[p], 0);
+const plTotal = () => PS().bar + plSide() * 2;
+const plTotalKg = () => toKg(plTotal());
 function plRender(){
+  const set = PS(), u = plUnit;
+  document.querySelectorAll('[data-plunit]').forEach(b => b.setAttribute('aria-pressed', b.dataset.plunit === u));
   document.getElementById('plTotal').textContent = fmt(plTotal());
-  document.getElementById('plSide').textContent = `槓 ${BAR_KG} kg ＋ 單邊 ${fmt(plSide())} kg × 2`;
-  const viz = PLATES.flatMap(p => Array(plCounts[p]).fill(p));
-  document.getElementById('plViz').innerHTML = `<span class="pl-sleeve"></span>${viz.map(p => `<span class="pl-disc ${plateCls(p)}" style="--h:${p >= 20 ? 64 : p >= 15 ? 56 : p >= 10 ? 48 : p >= 5 ? 38 : p >= 2.5 ? 30 : 24}px"></span>`).join('')}<span class="pl-end"></span>`;
-  document.getElementById('plRows').innerHTML = PLATES.map(p => `<div class="pl-row">
-      <span class="plate ${plateCls(p)}">${fmt(p)}</span><span class="pl-kg">${fmt(p)} kg 槓片</span>
-      <button type="button" class="pl-btn" data-pl="${p}" data-d="-1" aria-label="少一片 ${fmt(p)} kg"${plCounts[p] ? '' : ' disabled'}>−</button>
+  document.getElementById('plUnitLbl').textContent = u;
+  document.getElementById('plSide').innerHTML = `槓 ${set.bar} ${u} ＋ 單邊 ${fmt(plSide())} ${u} × 2${u === 'lb' ? `<br><b>＝ ${fmt(plTotalKg())} kg</b>（紀錄以公斤儲存）` : ''}`;
+  const kgOf = p => u === 'lb' ? p * KG_PER_LB : p;
+  const viz = set.plates.flatMap(p => Array(plCounts[p]).fill(p));
+  document.getElementById('plViz').innerHTML = `<span class="pl-sleeve"></span>${viz.map(p => { const k = kgOf(p);
+    return `<span class="pl-disc ${set.cls[p]}" style="--h:${k >= 19 ? 64 : k >= 14 ? 56 : k >= 9 ? 48 : k >= 4 ? 38 : k >= 2 ? 30 : 24}px"></span>`; }).join('')}<span class="pl-end"></span>`;
+  document.getElementById('plRows').innerHTML = set.plates.map(p => `<div class="pl-row">
+      <span class="plate ${set.cls[p]}">${fmt(p)}</span><span class="pl-kg">${fmt(p)} ${u} 槓片</span>
+      <button type="button" class="pl-btn" data-pl="${p}" data-d="-1" aria-label="少一片 ${fmt(p)} ${u}"${plCounts[p] ? '' : ' disabled'}>−</button>
       <b class="num pl-n">${plCounts[p]}</b>
-      <button type="button" class="pl-btn add" data-pl="${p}" data-d="1" aria-label="多一片 ${fmt(p)} kg">＋</button></div>`).join('');
+      <button type="button" class="pl-btn add" data-pl="${p}" data-d="1" aria-label="多一片 ${fmt(p)} ${u}">＋</button></div>`).join('');
 }
 document.getElementById('plRows').addEventListener('click', e => {
   const b = e.target.closest('[data-pl]'); if (!b) return;
   const p = +b.dataset.pl; plCounts[p] = Math.max(0, Math.min(12, plCounts[p] + +b.dataset.d)); plRender();
 });
-document.getElementById('plClear').onclick = () => { plCounts = platesFor(BAR_KG); plRender(); };
+document.getElementById('plUnits').addEventListener('click', e => {
+  const b = e.target.closest('[data-plunit]'); if (!b || b.dataset.plunit === plUnit) return;
+  const kg = plTotalKg(); plUnit = b.dataset.plunit; lsSet('pl8.plateUnit', plUnit);
+  plCounts = platesFor(kg); plRender();
+});
+document.getElementById('plClear').onclick = () => { plCounts = platesFor(0); plRender(); };
 // slide the sheet up from the bottom; slide it back down on close
 function showSheet(){
   clearTimeout(pk.hideT);
@@ -1053,7 +1076,7 @@ function pkCommit(v){
   const all = !document.getElementById('pkAll').parentElement.hidden && document.getElementById('pkAll').checked;
   pk.onCommit(v, all); closePicker(); pendingRender = false; render();
 }
-document.getElementById('pkDone').onclick = () => pkCommit(pk.mode === 'plate' ? plTotal() : pk.vals[pk.idx]);
+document.getElementById('pkDone').onclick = () => pkCommit(pk.mode === 'plate' ? plTotalKg() : pk.vals[pk.idx]);
 document.getElementById('pkClear').onclick = () => pkCommit(null);
 pk.el.querySelector('[data-pk-close]').onclick = closePicker;
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pk.el.hidden) closePicker(); });
