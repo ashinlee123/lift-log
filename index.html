@@ -399,6 +399,7 @@ button.ovc[aria-expanded="true"]{background:var(--surface-2);border-top-color:va
 .pl-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .wsub{font-size:11px;font-family:var(--body);margin-left:6px;font-weight:500}
 .updbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(66px + env(safe-area-inset-bottom,0px));z-index:8;border:0;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:14px;padding:10px 18px;box-shadow:0 6px 20px #0004;white-space:nowrap}
+.dlbulk{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -1346,6 +1347,7 @@ function renderMenu(){
     </div>
     <p class="small muted" style="margin:10px 0 6px">一個波浪 = ${C.accum} 週累積${C.deload ? ` + ${C.deload} 週減量` : ''}，重複 ${C.waves} 次，共 <b>${TOTAL_WEEKS}</b> 週。</p>
     <div class="cyc">${WEEKS.map(w => `<span class="${w.deload ? 'd' : ''}" title="${w.label}">${w.n}</span>`).join('')}</div>
+    ${C.deload ? renderDeloadBulk() : ''}
   </div>
   <details class="card fold"><summary><h3>基準 PR</h3><span class="small muted">${Object.keys(LIFTS).map(l => `${LIFTS[l]} ${fmt(prog.base[l].w)}×${prog.base[l].r}`).join(' · ')}</span></summary><p class="small muted" style="margin:8px 0">進度頁的估算 1RM 會和這裡比較。</p>
     ${Object.keys(LIFTS).map(l => { const b = prog.base[l]; return `<div class="baserow"><b>${LIFTS[l]}</b>
@@ -1394,7 +1396,7 @@ function renderMenu(){
           </div>
           <div class="subh">減量週</div>
           <div class="fgrid">
-            <label class="f"><span>組數</span>${sel('data-pf="dlSets"', range(0,10), ex.dlSets, v => v ? `${v} 組` : '取消（休息）', 'ds-'+id)}</label>
+            <label class="f"><span>組數</span>${sel('data-pf="dlSets"', range(0,10), ex.dlSets, v => !v ? '取消（休息）' : v < ex.sets ? `${v} 組（少 ${ex.sets - v} 組）` : `${v} 組`, 'ds-'+id)}</label>
             <label class="f"><span>次數</span>${sel('data-pf="dlReps"', range(1,30), ex.dlReps, v => `${v} 下`, 'dr-'+id)}</label>
             <label class="f"><span>重量（上一週的 %）</span>${sel('data-pf="dlPct"', range(50,100,2.5), ex.dlPct, v => `${fmt(v)}%`, 'dp-'+id)}</label>
             <label class="f"><span>RPE</span>${sel('data-pf="dlRpe"', range(5,10,0.5), ex.dlRpe, fmt, 'de-'+id)}</label>
@@ -1426,7 +1428,32 @@ function setProgField(ex, f, el){
   if (f === 'reps' && ex.repsMax != null && ex.repsMax <= ex.reps) ex.repsMax = null;
   if (f === 'day'){ const i = prog.exercises.indexOf(ex); prog.exercises.splice(i, 1); prog.exercises.push(ex); }
 }
+/* deload week: set weight % and how many sets to drop for many exercises at once */
+const dlg = Object.assign({pct:85, cut:'half', scope:'main'}, lsGet('pl8.dlBulk', {}));
+const DL_CUTS = {0:'組數不變', 1:'少 1 組', 2:'少 2 組', 3:'少 3 組', half:'組數減半'};
+const dlTargets = () => EX.filter(e => dlg.scope === 'all' || LIFTS[e.cat]);
+const dlSetsFor = (ex, cut) => cut === 'half' ? Math.max(1, Math.ceil(ex.sets / 2)) : Math.max(1, ex.sets - +cut);
+let dlMsg = '';
+function renderDeloadBulk(){
+  const n = dlTargets().length;
+  return `<div class="dlbulk"><div class="subh" style="--c:var(--ink)">減量週設定</div>
+    <p class="small muted" style="margin:2px 0 8px">一次調整多個動作的減量週。重量是「累積期最後一週」的百分比，組數以累積期組數為準。套用後仍可在下方個別動作再微調。</p>
+    <div class="fgrid">
+      <label class="f"><span>重量</span>${sel('data-dlg="pct"', range(50,100,2.5), dlg.pct, v => `${fmt(v)}%`)}</label>
+      <label class="f"><span>組數</span>${sel('data-dlg="cut"', Object.keys(DL_CUTS), dlg.cut, v => DL_CUTS[v])}</label>
+      <label class="f full"><span>套用到</span>${sel('data-dlg="scope"', ['main', 'all'], dlg.scope, v => v === 'main' ? '三項（深蹲、臥推、硬舉類別）' : '所有動作（含輔助）')}</label>
+    </div>
+    <div class="row2" style="margin-top:10px;justify-content:space-between"><span class="small muted">${dlMsg || `將調整 ${n} 個動作；減量週設為「取消」的動作維持取消。`}</span>
+      <button type="button" class="btn sm" data-dlapply style="background:var(--ink);color:var(--surface);border-color:var(--ink)">套用</button></div>
+  </div>`;
+}
 function menuClick(e){
+  if (e.target.closest('[data-dlapply]')){
+    let n = 0;
+    for (const ex of dlTargets()){ if (!ex.dlSets) continue; ex.dlPct = +dlg.pct; ex.dlSets = dlSetsFor(ex, dlg.cut); n++; }
+    dlMsg = `已套用到 ${n} 個動作：重量 ${fmt(+dlg.pct)}%，${DL_CUTS[dlg.cut]}。`;
+    touchProg(); rebuild(); render(); return true;
+  }
   const t = e.target;
   if (t.closest('[data-reset]')){
     if (!resetArm){ resetArm = true; render(); return true; }
@@ -1474,6 +1501,7 @@ function menuClick(e){
 function menuChange(e){
   const t = e.target;
   if (t.dataset.cy){ prog.cycle[t.dataset.cy] = +t.value; touchProg(); rebuild(); render(); return true; }
+  if (t.dataset.dlg){ dlg[t.dataset.dlg] = t.value; lsSet('pl8.dlBulk', dlg); dlMsg = ''; render(); return true; }
   if (t.dataset.base){ prog.base[t.dataset.base][t.dataset.bk] = +t.value; touchProg(); rebuild(); return true; }
   const f = t.dataset.pf; if (!f || t.type === 'text' || t.tagName === 'TEXTAREA') return !!f;
   const ex = EXBY[t.closest('.mx').dataset.id];
@@ -1643,7 +1671,7 @@ let lastTouchEnd = 0;
 document.addEventListener('touchend', e => { const now = Date.now(); if (now - lastTouchEnd < 300 && !e.target.closest('input,textarea,select')) e.preventDefault(); lastTouchEnd = now; }, {passive:false});
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).catch(() => {}));
 // new-version check: the phone may resume the old page from memory, so ask the server each time the app comes back
-const BUILD = 'v8';
+const BUILD = 'v9';
 const updBar = document.getElementById('updBar');
 async function checkUpdate(){
   if (!navigator.onLine) return;
