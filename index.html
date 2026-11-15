@@ -404,6 +404,7 @@ button.ovc[aria-expanded="true"]{background:var(--surface-2);border-top-color:va
 main .wrap > *{min-width:0}
 .lt h3{display:flex;align-items:center;gap:6px}
 .lt-wrap{overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.titlerow{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .lt-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
 .lt-head h3{margin:0}
 .lt-dl{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:4px 11px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
@@ -849,7 +850,7 @@ function renderLiftTables(){
     const list = EX.filter(e => e.cat === l);
     if (!list.length) continue;
     h += `<div class="card lt"><div class="lt-head"><h3><span class="ovl" style="--c:var(--${l})"><i></i>${LIFTS[l]}</span> 每週重量</h3>
-      ${hasDl ? `<button type="button" class="lt-dl" data-dltoggle aria-pressed="${showDl}">${showDl ? '隱藏減量週' : '顯示減量週'}</button>` : ''}</div>
+</div>
       <div class="lt-wrap"><table class="lt-tbl"><thead><tr><th class="lt-name">項目</th>${cols.map(w => `<th class="${w.deload ? 'dl' : ''}${w.n === ui.week ? ' cur' : ''}">W${w.n}</th>`).join('')}</tr></thead><tbody>`;
     for (const ex of list){
       const p1 = rx(ex, 1);
@@ -889,7 +890,7 @@ function renderProg(){
       for (const r of s.sets[id]) if (r.ok){ setsDone++; const w = firstNum(r.w) ?? p.w, reps = firstNum(r.r) ?? p.reps; if (w && reps) tonnage += w * reps; }
     }
   }
-  let h = `<div class="dayhead"><span class="eyebrow">${TOTAL_WEEKS} 週週期進度</span><h2>訓練進度</h2></div>
+  let h = `<div class="dayhead"><span class="eyebrow">${TOTAL_WEEKS} 週週期進度</span><div class="titlerow"><h2>訓練進度</h2>${WEEKS.some(w => w.deload) ? `<button type="button" class="lt-dl" data-dltoggle aria-pressed="${!!ui.showDeload}">${ui.showDeload ? '隱藏減量週' : '顯示減量週'}</button>` : ''}</div></div>
   ${renderLiftTables()}
   ${renderVolume(ui.week, true)}
   ${renderSheetCard()}
@@ -1752,7 +1753,7 @@ let lastTouchEnd = 0;
 document.addEventListener('touchend', e => { const now = Date.now(); if (now - lastTouchEnd < 300 && !e.target.closest('input,textarea,select')) e.preventDefault(); lastTouchEnd = now; }, {passive:false});
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).catch(() => {}));
 // new-version check: the phone may resume the old page from memory, so ask the server each time the app comes back
-const BUILD = 'v11';
+const BUILD = 'v12';
 const updBar = document.getElementById('updBar');
 async function checkUpdate(){
   if (!navigator.onLine) return;
