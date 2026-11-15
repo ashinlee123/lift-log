@@ -403,7 +403,11 @@ button.ovc[aria-expanded="true"]{background:var(--surface-2);border-top-color:va
 .lt{min-width:0;max-width:100%}
 main .wrap > *{min-width:0}
 .lt h3{display:flex;align-items:center;gap:6px}
-.lt-wrap{overflow-x:auto;margin-inline:-14px;padding-inline:14px;-webkit-overflow-scrolling:touch}
+.lt-wrap{overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.lt-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.lt-head h3{margin:0}
+.lt-dl{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:4px 11px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.lt-dl[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .lt-tbl{border-collapse:separate;border-spacing:0;min-width:0;width:max-content;font-size:13px}
 .lt-tbl th,.lt-tbl td{border-bottom:1px solid var(--line);padding:0;text-align:center;vertical-align:middle}
 .lt-tbl thead th{font-family:var(--display);font-size:13px;color:var(--muted);padding:4px 0 6px;min-width:52px}
@@ -420,7 +424,11 @@ main .wrap > *{min-width:0}
 .lt-tbl td.up small{color:var(--good)}
 .lt-tbl td.down small{color:var(--warn)}
 .lt-tbl td.dl,.lt-tbl th.dl{background:repeating-linear-gradient(135deg,transparent 0 6px,color-mix(in srgb,var(--line) 55%,transparent) 6px 7px)}
-.lt-tbl td.cur,.lt-tbl thead th.cur{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.lt-tbl{--cur:color-mix(in srgb,var(--surface-2) 82%,var(--ink) 6%)}
+.lt-tbl .cur{background:var(--cur);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.lt-tbl thead th.cur{border-top:1px solid var(--line);border-radius:10px 10px 0 0;color:var(--ink)}
+.lt-tbl tbody tr:last-child td.cur{border-bottom:1px solid var(--line);border-radius:0 0 10px 10px}
+.lt-tbl .cur.dl{background:var(--cur)}
 .lt-tbl td.na{color:var(--muted);font-family:var(--display)}
 .lt-legend{margin:-6px 2px 0;line-height:1.9}
 .lt-k{font-family:var(--display);font-size:14px;margin-right:2px}
@@ -834,18 +842,20 @@ function weekTop(ex, week){
 }
 function renderLiftTables(){
   const order = ['squat', 'dead', 'bench'];
+  const showDl = !!ui.showDeload, cols = WEEKS.filter(w => showDl || !w.deload);
+  const hasDl = WEEKS.some(w => w.deload);
   let h = '';
   for (const l of order){
     const list = EX.filter(e => e.cat === l);
     if (!list.length) continue;
-    h += `<div class="card lt"><h3><span class="ovl" style="--c:var(--${l})"><i></i>${LIFTS[l]}</span> 每週重量</h3>
-      <div class="lt-wrap"><table class="lt-tbl"><thead><tr><th class="lt-name">項目</th>${WEEKS.map(w => `<th class="${w.deload ? 'dl' : ''}${w.n === ui.week ? ' cur' : ''}">W${w.n}</th>`).join('')}</tr></thead><tbody>`;
+    h += `<div class="card lt"><div class="lt-head"><h3><span class="ovl" style="--c:var(--${l})"><i></i>${LIFTS[l]}</span> 每週重量</h3>
+      ${hasDl ? `<button type="button" class="lt-dl" data-dltoggle aria-pressed="${showDl}">${showDl ? '隱藏減量週' : '顯示減量週'}</button>` : ''}</div>
+      <div class="lt-wrap"><table class="lt-tbl"><thead><tr><th class="lt-name">項目</th>${cols.map(w => `<th class="${w.deload ? 'dl' : ''}${w.n === ui.week ? ' cur' : ''}">W${w.n}</th>`).join('')}</tr></thead><tbody>`;
     for (const ex of list){
       const p1 = rx(ex, 1);
       const scheme = p1.cancelled ? '' : `${p1.setsText}×${p1.repsText}`;
       h += `<tr><th class="lt-name" scope="row"><b>${esc(ex.name)}</b><small>D${ex.day} · ${scheme}</small></th>`;
-      let prevDone = null;
-      for (const w of WEEKS){
+      for (const w of cols){
         const p = rx(ex, w.n), cls = [w.deload ? 'dl' : '', w.n === ui.week ? 'cur' : ''];
         if (p.cancelled){ h += `<td class="${cls.join(' ')} na">—</td>`; continue; }
         const done = weekTop(ex, w.n);
@@ -855,7 +865,6 @@ function renderLiftTables(){
           cls.push('done', diff > 0 ? 'up' : diff < 0 ? 'down' : '');
           body = `${fmt(done)}${diff ? `<small>${diff > 0 ? '+' : ''}${fmt(diff)}</small>` : ''}`;
           title = `實際 ${fmt(done)} kg${p.w != null ? `，課表 ${fmt(p.w)} kg` : ''}`;
-          prevDone = done;
         } else {
           cls.push('plan');
           body = p.w != null ? fmt(p.w) : '·';
@@ -867,7 +876,7 @@ function renderLiftTables(){
     }
     h += `</tbody></table></div></div>`;
   }
-  if (h) h += `<p class="small muted lt-legend"><b class="lt-k done">100</b> 已完成的最重組　<span class="lt-k plan">100</span> 課表（尚未完成）　<span class="lt-k up">+2.5</span> 超過課表　<span class="lt-k down">−2.5</span> 低於課表　虛線欄＝減量週。點格子跳到該天。</p>`;
+  if (h) h += `<p class="small muted lt-legend"><b class="lt-k done">100</b> 已完成的最重組　<span class="lt-k plan">100</span> 課表（尚未完成）　<span class="lt-k up">+2.5</span> 超過課表　<span class="lt-k down">−2.5</span> 低於課表　${showDl ? '斜線欄＝減量週。' : ''}點格子跳到該天。</p>`;
   return h;
 }
 function renderProg(){
@@ -1652,6 +1661,7 @@ document.querySelector('.tabs').addEventListener('click', e => {
 
 const view = document.getElementById('view');
 view.addEventListener('click', e => {
+  if (e.target.closest('[data-dltoggle]')){ ui.showDeload = !ui.showDeload; saveUI(); render(); return; }
   const vm = e.target.closest('[data-volmode]');
   if (vm){ ui.volMode = vm.dataset.volmode; saveUI(); render(); return; }
   const vp = e.target.closest('[data-volpart]');
@@ -1742,7 +1752,7 @@ let lastTouchEnd = 0;
 document.addEventListener('touchend', e => { const now = Date.now(); if (now - lastTouchEnd < 300 && !e.target.closest('input,textarea,select')) e.preventDefault(); lastTouchEnd = now; }, {passive:false});
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).catch(() => {}));
 // new-version check: the phone may resume the old page from memory, so ask the server each time the app comes back
-const BUILD = 'v10';
+const BUILD = 'v11';
 const updBar = document.getElementById('updBar');
 async function checkUpdate(){
   if (!navigator.onLine) return;
