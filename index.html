@@ -400,6 +400,31 @@ button.ovc[aria-expanded="true"]{background:var(--surface-2);border-top-color:va
 .wsub{font-size:11px;font-family:var(--body);margin-left:6px;font-weight:500}
 .updbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(66px + env(safe-area-inset-bottom,0px));z-index:8;border:0;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:14px;padding:10px 18px;box-shadow:0 6px 20px #0004;white-space:nowrap}
 .dlbulk{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.lt{min-width:0;max-width:100%}
+main .wrap > *{min-width:0}
+.lt h3{display:flex;align-items:center;gap:6px}
+.lt-wrap{overflow-x:auto;margin-inline:-14px;padding-inline:14px;-webkit-overflow-scrolling:touch}
+.lt-tbl{border-collapse:separate;border-spacing:0;min-width:0;width:max-content;font-size:13px}
+.lt-tbl th,.lt-tbl td{border-bottom:1px solid var(--line);padding:0;text-align:center;vertical-align:middle}
+.lt-tbl thead th{font-family:var(--display);font-size:13px;color:var(--muted);padding:4px 0 6px;min-width:52px}
+.lt-tbl thead th.cur{color:var(--ink)}
+.lt-tbl .lt-name{position:sticky;left:0;z-index:1;background:var(--surface);text-align:left;padding:8px 10px 8px 0;min-width:112px;max-width:132px;box-shadow:6px 0 6px -6px #0003}
+.lt-tbl thead .lt-name{font-family:var(--body);font-size:11px}
+.lt-name b{display:block;font-size:13px;line-height:1.25;color:var(--ink)}
+.lt-name small{display:block;font-size:11px;color:var(--muted);font-weight:500}
+.lt-tbl td button{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;min-height:46px;padding:4px 2px;font-family:var(--display);font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.lt-tbl td button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.lt-tbl td.plan button{color:var(--muted);font-weight:500}
+.lt-tbl td.done button{color:var(--ink);font-weight:700}
+.lt-tbl td small{font-size:10px;font-weight:700;line-height:1}
+.lt-tbl td.up small{color:var(--good)}
+.lt-tbl td.down small{color:var(--warn)}
+.lt-tbl td.dl,.lt-tbl th.dl{background:repeating-linear-gradient(135deg,transparent 0 6px,color-mix(in srgb,var(--line) 55%,transparent) 6px 7px)}
+.lt-tbl td.cur,.lt-tbl thead th.cur{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.lt-tbl td.na{color:var(--muted);font-family:var(--display)}
+.lt-legend{margin:-6px 2px 0;line-height:1.9}
+.lt-k{font-family:var(--display);font-size:14px;margin-right:2px}
+.lt-k.plan{color:var(--muted)} .lt-k.up{color:var(--good);font-weight:700} .lt-k.down{color:var(--warn);font-weight:700}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -800,6 +825,51 @@ function liftChart(vals, base, color){
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="每週最佳估算 1RM">${g}</svg>`;
 }
 
+/* weekly weight table per competition lift: rows = each exercise of that lift, columns = weeks */
+function weekTop(ex, week){
+  const arr = getSession(week, ex.day)?.sets?.[ex.id] || [];
+  let top = null;
+  for (const r of arr) if (r.ok){ const w = firstNum(r.w); if (w != null && (top == null || w > top)) top = w; }
+  return top;
+}
+function renderLiftTables(){
+  const order = ['squat', 'dead', 'bench'];
+  let h = '';
+  for (const l of order){
+    const list = EX.filter(e => e.cat === l);
+    if (!list.length) continue;
+    h += `<div class="card lt"><h3><span class="ovl" style="--c:var(--${l})"><i></i>${LIFTS[l]}</span> 每週重量</h3>
+      <div class="lt-wrap"><table class="lt-tbl"><thead><tr><th class="lt-name">項目</th>${WEEKS.map(w => `<th class="${w.deload ? 'dl' : ''}${w.n === ui.week ? ' cur' : ''}">W${w.n}</th>`).join('')}</tr></thead><tbody>`;
+    for (const ex of list){
+      const p1 = rx(ex, 1);
+      const scheme = p1.cancelled ? '' : `${p1.setsText}×${p1.repsText}`;
+      h += `<tr><th class="lt-name" scope="row"><b>${esc(ex.name)}</b><small>D${ex.day} · ${scheme}</small></th>`;
+      let prevDone = null;
+      for (const w of WEEKS){
+        const p = rx(ex, w.n), cls = [w.deload ? 'dl' : '', w.n === ui.week ? 'cur' : ''];
+        if (p.cancelled){ h += `<td class="${cls.join(' ')} na">—</td>`; continue; }
+        const done = weekTop(ex, w.n);
+        let body, title;
+        if (done != null){
+          const diff = p.w != null ? done - p.w : 0;
+          cls.push('done', diff > 0 ? 'up' : diff < 0 ? 'down' : '');
+          body = `${fmt(done)}${diff ? `<small>${diff > 0 ? '+' : ''}${fmt(diff)}</small>` : ''}`;
+          title = `實際 ${fmt(done)} kg${p.w != null ? `，課表 ${fmt(p.w)} kg` : ''}`;
+          prevDone = done;
+        } else {
+          cls.push('plan');
+          body = p.w != null ? fmt(p.w) : '·';
+          title = p.w != null ? `課表 ${fmt(p.w)} kg（未完成）` : '自訂重量';
+        }
+        h += `<td class="${cls.filter(Boolean).join(' ')}"><button type="button" data-go="${w.n}-${ex.day}" title="${title}" aria-label="W${w.n} ${esc(ex.name)} ${title}">${body}</button></td>`;
+      }
+      h += `</tr>`;
+    }
+    h += `</tbody></table></div></div>`;
+  }
+  if (h) h += `<p class="small muted lt-legend"><b class="lt-k done">100</b> 已完成的最重組　<span class="lt-k plan">100</span> 課表（尚未完成）　<span class="lt-k up">+2.5</span> 超過課表　<span class="lt-k down">−2.5</span> 低於課表　虛線欄＝減量週。點格子跳到該天。</p>`;
+  return h;
+}
 function renderProg(){
   let doneDays = 0, setsDone = 0, tonnage = 0;
   for (let w = 1; w <= TOTAL_WEEKS; w++) for (let d = 1; d <= 4; d++) if (dayCounts(w,d).finished) doneDays++;
@@ -811,6 +881,7 @@ function renderProg(){
     }
   }
   let h = `<div class="dayhead"><span class="eyebrow">${TOTAL_WEEKS} 週週期進度</span><h2>訓練進度</h2></div>
+  ${renderLiftTables()}
   ${renderVolume(ui.week, true)}
   ${renderSheetCard()}
   <div class="stats">
@@ -1671,7 +1742,7 @@ let lastTouchEnd = 0;
 document.addEventListener('touchend', e => { const now = Date.now(); if (now - lastTouchEnd < 300 && !e.target.closest('input,textarea,select')) e.preventDefault(); lastTouchEnd = now; }, {passive:false});
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).catch(() => {}));
 // new-version check: the phone may resume the old page from memory, so ask the server each time the app comes back
-const BUILD = 'v9';
+const BUILD = 'v10';
 const updBar = document.getElementById('updBar');
 async function checkUpdate(){
   if (!navigator.onLine) return;
